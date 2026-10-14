@@ -89,6 +89,7 @@ table.pecas tr.addop td{padding:0 3px 4px;border-bottom:none}
 .lnk:hover{text-decoration:underline}
 .lnk:focus-visible{outline:3px solid var(--focus);outline-offset:1px}
 .orig{font-size:11px;color:var(--muted);display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.orig.nota{color:var(--atencao);font-weight:700}
 .resumo{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
 .kpi{border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;background:var(--surface)}
 .kpi .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
@@ -118,6 +119,7 @@ table.mapa td.par{text-align:center;font-size:12pt;font-weight:700}
 table.mapa td.par.A{background:var(--m-pa)!important;color:#fff}
 table.mapa td.par.B{background:var(--m-pb)!important;color:var(--m-navy)}
 table.mapa td.nome{font-size:10.5pt;font-weight:700;color:#000}
+table.mapa td.nome .sobre{font-size:7.5pt;font-weight:700;color:#833C0B}
 table.mapa tr.temPar td.nome{border-left:1mm solid var(--m-pa)}
 table.mapa td.qt{text-align:center;font-size:14pt;font-weight:700;color:#000}
 table.mapa td.iso{text-align:center;font-size:7.5pt;font-weight:700}
@@ -161,20 +163,21 @@ table.mapa tr.semesp td.par{color:#C00000;font-size:6pt;font-weight:700;white-sp
         <button class="btn" id="novo" type="button">Criar do zero</button>
       </div>
       <span class="fonte" id="fonte">Exemplo carregado: <strong>Penteadeira Princesa</strong></span>
-      <label class="c" for="aba" id="abaWrap" hidden>Aba da planilha<select id="aba"></select></label>
+      <label class="c" for="aba" id="abaWrap" hidden>Mapa da planilha (aba ou volume)<select id="aba"></select></label>
       <div id="erroLeitura" class="erro" hidden></div>
     </section>
 
     <section class="bloco" aria-labelledby="h2">
       <h2 id="h2"><b>2</b>Regras</h2>
       <div class="modo" role="radiogroup" aria-label="Distribuição nos trilhos">
-        <label><input type="radio" name="modo" id="modoSep" value="separar" checked><span><strong>Separar operadores ao máximo</strong><small>Espalha os postos por todos os trilhos com espaço livre entre eles. A ordem das peças não muda.</small></span></label>
+        <label><input type="radio" name="modo" id="modoSep" value="separar" checked><span><strong>Separar operadores</strong><small>Deixa trilhos livres entre os postos, por igual, até o máximo definido abaixo. O que sobra fica no fim da linha. A ordem das peças não muda.</small></span></label>
         <label><input type="radio" name="modo" id="modoMan" value="manter"><span><strong>Manter trilhos atuais</strong><small>Cada peça fica no trilho de hoje. O trilho B entra no livre ao lado, se houver.</small></span></label>
       </div>
       <div class="campos">
         <label class="c" for="nTr">Trilhos na linha<input id="nTr" type="number" min="5" max="80" step="1"></label>
+        <label class="c" for="maxLivre" title="Usado em 'Separar operadores'">Máx. livres entre postos<input id="maxLivre" type="number" min="0" max="20" step="1" value="3"></label>
         <label class="c" for="lote">Lote (opcional)<input id="lote" type="text" inputmode="numeric" placeholder="ex.: 2300"></label>
-        <label class="c" for="nome">Produto no mapa<input id="nome" type="text"></label>
+        <label class="c" for="nome" style="grid-column:1/-1">Produto no mapa<input id="nome" type="text"></label>
         <label class="c" for="caixa" style="grid-column:1/-1">Caixa (início da esteira)<input id="caixa" type="text" placeholder="ex.: CAIXA TRIPLEX 1005x500x120"></label>
       </div>
       <div class="acoes">
@@ -217,7 +220,7 @@ const AMOSTRA_B64 = "UEsDBBQABgAIAAAAIQBBN4LPbgEAAAQFAAATAAgCW0NvbnRlbnRfVHlwZXN
 
 /* ================= estado ================= */
 // origem: 'planilha' (mapa antigo), 'app' (Excel gerado por este app) ou 'zero' (criado aqui)
-const S = { produto:'', rev:'', vel:'', nTr:30, caixa:null, itens:[], avisos:[], arquivo:'', origem:'planilha', abas:[], aba:'', buf:null, avisoPares:'' };
+const S = { produto:'', rev:'', vel:'', nTr:30, maxLivre:3, caixa:null, itens:[], avisos:[], arquivo:'', origem:'planilha', mapas:[], mapaIdx:0, sobre:new Map(), buf:null, avisoPares:'' };
 
 /* ================= utilidades ================= */
 const norm = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
@@ -233,7 +236,7 @@ const ABREV = [
   ['C F GAV','CONTRA-FRENTE GAVETA'],['LAT DIR/ESQ','LATERAL DIR/ESQ'],['BASE DIR/ESQ','BASE DIR/ESQ'],
   ['LAT GAV','LATERAL GAVETA'],['FUNDO GAV','FUNDO GAVETA'],['FUNDO TRAS','FUNDO TRASEIRO'],['ACESSORIOS','ACESSÓRIOS'],['FRENTE GAV','FRENTE GAVETA'],['F GAV','FUNDO GAVETA'],['F TRAS','FUNDO TRASEIRO'],
   ['LAT DIR','LATERAL DIREITA'],['LAT ESQ','LATERAL ESQUERDA'],['LAT INT','LATERAL INTERNA'],['LAT EXT','LATERAL EXTERNA'],
-  ['ROD/MOLD','RODAPÉ / MOLDURA'],['PRAT MOV','PRATELEIRA MÓVEL'],['MOLD ESPELHO','MOLDURA ESPELHO'],
+  ['ROD/MOLD','RODAPÉ / MOLDURA'],['PRAT MOV','PRATELEIRA MÓVEL'],['MOLD ESPELHO','MOLDURA ESPELHO'],['MOLD','MOLDURA'],
   ['BATENTE PTA','BATENTE PORTA'],['PTA DIR','PORTA DIREITA'],['PTA ESQ','PORTA ESQUERDA'],['FUNDO SUP','FUNDO SUPERIOR'],['REGUA SUP','RÉGUA SUPERIOR'],['REGUA FRONTAL','RÉGUA FRONTAL'],
   ['TRAV FRONTAL','TRAVESSA FRONTAL'],['PE BANQUETA','PÉ BANQUETA'],['PE PLASTICO','PÉ PLÁSTICO'],
   ['PRAT','PRATELEIRA'],['PES','PÉS'],['CX','CAIXA'],['ACESS','ACESSÓRIOS'],['LAT','LATERAL'],['PTA','PORTA']
@@ -252,13 +255,18 @@ function mesmaPalavra(a, b){
   return abrevia(a,b) || abrevia(b,a);
 }
 // tira do começo da descrição o nome do produto, na ordem do título, mesmo abreviado:
-// "BUFFET 2 PT PRISM TAMPO" com produto "BUFFET 2 PTS PRISM" vira "TAMPO"
+// "BUFFET 2 PT PRISM TAMPO" com produto "BUFFET 2 PTS PRISM" vira "TAMPO"; "LAILA /PRISM" casa com "LAILA/PRISM"
 function tiraProdutoDoInicio(s, tokProduto){
   const w = s.split(' '); let i = 0, j = 0;
+  const acha = (p, de) => { let k = de; while (k < tokProduto.length && !mesmaPalavra(p, tokProduto[k])) k++; return k < tokProduto.length ? k : -1; };
   while (i < w.length){
-    let k = j; while (k < tokProduto.length && !mesmaPalavra(w[i], tokProduto[k])) k++;
-    if (k >= tokProduto.length) break;
-    i++; j = k + 1;
+    let k = acha(w[i], j), prox = k + 1;
+    if (k < 0){ // palavra com barra: cada parte tem que ser do produto
+      const partes = w[i].split('/').filter(Boolean); if (!partes.length) break;
+      prox = j; for (const p of partes){ const kp = acha(p, prox); if (kp < 0){ prox = -1; break; } prox = kp + 1; }
+      if (prox < 0) break;
+    }
+    i++; j = prox;
   }
   return w.slice(i).join(' ');
 }
@@ -268,6 +276,9 @@ function quebraDescricao(desc, palavrasProduto, tokProduto){
   let esq = '', mat = '';
   const mMat = s.match(/(^|[^A-Z])(MDP|MDF)(?![A-Z])(?:\s*N(?![A-Z]))?\s*(\d+)?/);
   if (mMat){ mat = mMat[2]; esq = mMat[3] || ''; const ini = mMat.index + mMat[1].length; s = (s.slice(0,ini) + ' ' + s.slice(mMat.index + mMat[0].length)).trim(); }
+  // mapas antigos: esquema escrito na descrição ("TRAVA Nº 02")
+  const mN = s.match(/(^|\s)N\s*[º°]\s*(\d+)(?!\d)/);
+  if (mN){ if (!esq) esq = String(+mN[2]); s = (s.slice(0, mN.index) + ' ' + s.slice(mN.index + mN[0].length)).trim(); }
   let nome = s, medida = '';
   const mDim = s.match(/(\d+)\s*X\s*(\d+)(?:\s*X\s*(\d+))?/);
   let dims = [];
@@ -283,64 +294,129 @@ function quebraDescricao(desc, palavrasProduto, tokProduto){
   nome = nome.replace(reAbrev, (m, antes, w) => antes + (mapAbrev[w] || w)).trim();
   return { nome: nome || norm(desc), medida: medida.trim(), esq, dims };
 }
+// tira palavras do produto (também "PRISM/LAILA" quando as duas partes são do produto)
 function limpaPalavras(s, palavrasProduto){
-  return s.split(' ').filter(w => w && !palavrasProduto.has(w) && !IGNORAR.has(w) && !/^\d$/.test(w)).join(' ').replace(/\s+/g,' ').trim();
+  const doProduto = w => palavrasProduto.has(w) || (w.includes('/') && w.split('/').some(Boolean) && w.split('/').every(p => !p || palavrasProduto.has(p)));
+  return s.split(' ').filter(w => w && !doProduto(w) && !IGNORAR.has(w) && !/^\d$/.test(w)).join(' ').replace(/\s+/g,' ').trim();
 }
+
+/* ================= peças que não ocupam trilho ================= */
+// PERFIL H vai em cima de uma peça vizinha do mesmo posto; não tem trilho próprio no mapa novo
+const SEM_TRILHO = /^PERFIL\s*H\b/;
+const semTrilho = it => SEM_TRILHO.test(norm(it.nome));
+const comTrilho = () => S.itens.filter(it => !semTrilho(it));
+// peça que recebe cada item sem trilho: a de cima no mesmo posto; senão a de baixo no mesmo posto; senão a vizinha mais próxima
+function anfitrioes(){
+  const m = new Map();
+  S.itens.forEach((it,i)=>{
+    if (!semTrilho(it)) return;
+    const serve = (j, mesmoOp) => !semTrilho(S.itens[j]) && (!mesmoOp || S.itens[j].op===it.op);
+    let h = -1;
+    for (const mesmoOp of [true,false]){
+      for (let j=i-1; j>=0 && h<0; j--) if (serve(j,mesmoOp)) h = j;
+      for (let j=i+1; j<S.itens.length && h<0; j++) if (serve(j,mesmoOp)) h = j;
+      if (h>=0) break;
+    }
+    if (h>=0){ const host = S.itens[h]; if (!m.has(host)) m.set(host, []); m.get(host).push(it); }
+  });
+  return m;
+}
+const textoEmCima = (lista) => lista && lista.length ? ' + ' + lista.map(x => x.nome + (x.qt ? ' (' + x.qt + ')' : '')).join(' + ') + ' em cima' : '';
 
 /* ================= leitura da planilha ================= */
 const RE_DESC = /DESCRI.*PE/;
-function abasComMapa(wb){
-  return wb.SheetNames.filter(n => { const w = wb.Sheets[n]; return w['!ref'] && Object.keys(w).some(k => k[0] !== '!' && RE_DESC.test(norm(w[k].v))); });
+const RE_OP = /^OP[\s.\-]*\d+$/;
+// mapas do arquivo: uma aba pode ter vários, um por caixa, cada um começando no título "MAPA DOS TRILHOS"
+function mapasDoArquivo(wb){
+  const out = [];
+  for (const aba of wb.SheetNames){
+    const ws = wb.Sheets[aba]; if (!ws['!ref']) continue;
+    const titulos = new Set(); let temDesc = false;
+    for (const k of Object.keys(ws)){
+      if (k[0]==='!') continue; const t = norm(ws[k].v);
+      if (/MAPA DOS TRILHOS/.test(t)) titulos.add(XLSX.utils.decode_cell(k).r);
+      if (RE_DESC.test(t)) temDesc = true;
+    }
+    if (!titulos.size && !temDesc) continue;
+    const rng = XLSX.utils.decode_range(ws['!ref']);
+    const ini = [...titulos].sort((a,b)=>a-b); if (!ini.length) ini.push(rng.s.r); ini[0] = rng.s.r;
+    ini.forEach((r0,k)=>{
+      const r1 = k+1 < ini.length ? ini[k+1]-1 : rng.e.r;
+      let sub = '';
+      if (ini.length > 1){ // nome do mapa: linha abaixo do título
+        const tr = [...titulos].sort((a,b)=>a-b)[k];
+        for (let c=rng.s.c; c<=rng.e.c && !sub; c++){ const cell = ws[XLSX.utils.encode_cell({r:tr+1,c})]; if (cell && typeof cell.v==='string' && txt(cell.v)) sub = txt(cell.v); }
+      }
+      out.push({ aba, ini:r0, fim:r1, rotulo: ini.length > 1 ? `${aba.trim()} · ${sub || 'mapa ' + (k+1)}` : aba.trim() });
+    });
+  }
+  return out;
 }
-function lerPlanilha(buf, nomeArq, abaPedida){
+function lerPlanilha(buf, nomeArq, idxPedido){
   const wb = XLSX.read(buf, {type:'array'});
   const doApp = lerExportado(wb, nomeArq); if (doApp) return doApp;
-  const abas = abasComMapa(wb);
-  if (!abas.length) throw new Error('Não encontrei a coluna "DESCRIÇÃO DA PEÇA" em nenhuma aba. Confira se é o mapa dos trilhos da embalagem.');
-  // sem escolha do usuário: a última aba com MAPA no nome; se nenhuma tiver, a primeira
-  const comMapa = abas.filter(n => /MAPA/i.test(n));
-  const wsNome = abas.includes(abaPedida) ? abaPedida : (comMapa.length ? comMapa[comMapa.length-1] : abas[0]);
-  const ws = wb.Sheets[wsNome];
+  const mapas = mapasDoArquivo(wb);
+  if (!mapas.length) throw new Error('Não encontrei mapa dos trilhos neste arquivo (título "MAPA DOS TRILHOS" ou coluna "DESCRIÇÃO DA PEÇA").');
+  // sem escolha do usuário: o 1º mapa da última aba com MAPA no nome; se nenhuma tiver, o 1º mapa
+  let idx = mapas[idxPedido] ? idxPedido : -1;
+  if (idx < 0){ const comNome = mapas.filter(m => /MAPA/i.test(m.aba)); const aba = comNome.length ? comNome[comNome.length-1].aba : mapas[0].aba; idx = mapas.findIndex(m => m.aba===aba); }
+  const M = mapas[idx]; const ws = wb.Sheets[M.aba]; const R0 = M.ini, R1 = M.fim;
   const rng = XLSX.utils.decode_range(ws['!ref']);
-  const v = (r,c) => { const cell = ws[XLSX.utils.encode_cell({r,c})]; return cell ? cell.v : null; };
-  const merges = ws['!merges'] || [];
+  const v = (r,c) => { if (r<0 || c<0) return null; const cell = ws[XLSX.utils.encode_cell({r,c})]; return cell ? cell.v : null; };
+  const merges = (ws['!merges'] || []).filter(m => m.e.r >= R0 && m.s.r <= R1);
   const mesclaEm = (r,c) => merges.find(m => r>=m.s.r && r<=m.e.r && c>=m.s.c && c<=m.e.c);
   // linha de baixo de uma célula mesclada (o valor fica só na primeira linha)
   const continua = (r,c) => { if (c<0) return false; const m = mesclaEm(r,c); return !!m && m.s.r < r; };
   let hdrRow=-1, descCol=-1, qtdeCol=-1, trCol=-1, opCol=-1, isoCol=-1, velCol=-1, velRow=-1, titRow=-1, titCol=-1;
-  for (let r=rng.s.r; r<=rng.e.r; r++) for (let c=rng.s.c; c<=rng.e.c; c++){
+  for (let r=R0; r<=R1; r++) for (let c=rng.s.c; c<=rng.e.c; c++){
     const t = norm(v(r,c)); if (!t) continue;
     if (descCol<0 && RE_DESC.test(t)){ descCol=c; hdrRow=r; }
     if (/TRILHO/.test(t) && !/MAPA/.test(t) && trCol<0) trCol=c;
     if (/MAPA DOS TRILHOS/.test(t) && titRow<0){ titRow=r; titCol=c; }
     if (/VELOCIDADE/.test(t) && velRow<0){ velRow=r; velCol=c; }
   }
-  for (let c=rng.s.c; c<=rng.e.c; c++) if (norm(v(hdrRow,c))==='QTDE') qtdeCol=c;
-  if (qtdeCol<0) qtdeCol = descCol-1;
-  for (let r=hdrRow+1; r<=rng.e.r && (opCol<0 || isoCol<0); r++) for (let c=rng.s.c; c<descCol; c++){
+  const avisos = [];
+  if (descCol<0){
+    // mapa antigo sem a linha "DESCRIÇÃO DA PEÇA": a coluna das peças é a que tem mais textos
+    hdrRow = titRow>=0 ? titRow+1 : R0;
+    const conta = {};
+    for (let r=hdrRow+1; r<=R1; r++) for (let c=rng.s.c; c<=rng.e.c; c++){
+      if (c===trCol) continue; const t = norm(v(r,c));
+      if (t.length>=3 && !/^[\d.,\s]+$/.test(t) && !RE_OP.test(t) && t!=='ISOMANTA' && !/ESTEIRA/.test(t)) conta[c] = (conta[c]||0) + 1;
+    }
+    const melhor = Object.entries(conta).sort((a,b)=>b[1]-a[1])[0];
+    if (!melhor) throw new Error('Achei o mapa, mas não achei as descrições das peças. Confira a planilha.');
+    descCol = +melhor[0];
+    avisos.push({t:`Este mapa não tem a linha "DESCRIÇÃO DA PEÇA". Usei a coluna ${XLSX.utils.encode_col(descCol)} como descrição das peças; confira a lista.`, info:1});
+  } else {
+    for (let c=rng.s.c; c<=rng.e.c; c++) if (norm(v(hdrRow,c))==='QTDE') qtdeCol=c;
+    if (qtdeCol<0) qtdeCol = descCol-1;
+  }
+  for (let r=hdrRow+1; r<=R1 && (opCol<0 || isoCol<0); r++) for (let c=rng.s.c; c<descCol; c++){
     const t = norm(v(r,c));
-    if (opCol<0 && /^OP[\s-]*\d+$/.test(t)) opCol=c;
+    if (opCol<0 && RE_OP.test(t)) opCol=c;
     if (isoCol<0 && t==='ISOMANTA') isoCol=c;
   }
-  if (isoCol<0) isoCol = qtdeCol-1;
+  if (isoCol<0 && qtdeCol>0) isoCol = qtdeCol-1;
   // coluna "Nº ESQUEMA": o número pode estar na própria coluna ou na vizinha (ao lado de um "Nº")
   const esqCols = [];
-  for (let r=Math.max(rng.s.r,hdrRow-1); r<=Math.min(rng.e.r,hdrRow+1) && !esqCols.length; r++) for (let c=rng.s.c; c<=rng.e.c; c++){
+  for (let r=Math.max(R0,hdrRow-1); r<=Math.min(R1,hdrRow+1) && !esqCols.length; r++) for (let c=rng.s.c; c<=rng.e.c; c++){
     if (!/ESQUEMA/.test(norm(v(r,c)))) continue;
     const m = mesclaEm(r,c); const fim = Math.max(m ? m.e.c : c, c+1);
     for (let k=c; k<=fim; k++) if (k!==descCol && k!==trCol && k!==qtdeCol && k!==isoCol && k!==opCol) esqCols.push(k);
     break;
   }
-  const avisos = [];
-  if (abas.length > 1) avisos.push({t:`O arquivo tem ${abas.length} abas com mapa (${abas.join(', ')}). Estou usando "${wsNome}". Se for outra, troque em "Aba da planilha".`});
+  if (mapas.length > 1) avisos.unshift({t:`O arquivo tem ${mapas.length} mapas (${mapas.map(m=>m.rotulo).join('; ')}). Estou usando "${M.rotulo}". Para outro, troque em "Mapa da planilha".`});
   if (trCol<0) avisos.push({t:'Não achei a coluna "Nº TRILHO". As posições atuais foram numeradas pela ordem das linhas.'});
 
   // título, data e velocidade
   let produto = '', rev = '', vel = '';
-  if (titRow>=0){ const t = txt(v(titRow+1,titCol)); const m = t.match(/(\d{2}\/\d{2}\/\d{4})/); rev = m ? m[1] : ''; produto = t.replace(/\d{2}\/\d{2}\/\d{4}/,'').trim(); }
+  const reData = /\d{2}\/\d{2}\/\d{2,4}/;
+  if (titRow>=0){ const t = txt(v(titRow+1,titCol)); const m = t.match(reData); rev = m ? m[0] : ''; produto = t.replace(reData,'').trim(); }
   if (!produto) produto = nomeArq.replace(/\.xls[xm]?$/i,'').replace(/_/g,' ');
   if (velRow>=0){ const a=v(velRow+1,velCol), b=v(velRow+1,velCol+1); vel = [a,b].filter(x=>typeof x==='number').map(x=>x.toFixed(2).replace('.',',')).join(' / '); }
-  const tokProduto = norm(produto).split(' ').filter(Boolean);
+  // "CX 01/03" no título indica a caixa, não faz parte do nome das peças
+  const tokProduto = norm(produto).replace(/\bCX\s*\d+\s*\/\s*\d+/,' ').split(/[\s\/]+/).filter(Boolean);
   const palavrasProduto = new Set(tokProduto.filter(w=>w.length>1 && !/^\d+$/.test(w)));
 
   // postos (células mescladas e soltas na coluna OP)
@@ -349,53 +425,73 @@ function lerPlanilha(buf, nomeArq, abaPedida){
     for (const m of merges){
       if (m.s.c===opCol && m.e.c===opCol){ const t=norm(v(m.s.r,opCol)); if (/^OP/.test(t)) for (let r=m.s.r;r<=m.e.r;r++) opDaLinha[r]=t; }
     }
-    for (let r=hdrRow+1;r<=rng.e.r;r++){ const t=norm(v(r,opCol)); if (/^OP[\s-]*\d+$/.test(t)) opDaLinha[r]=t; }
+    for (let r=hdrRow+1;r<=R1;r++){ const t=norm(v(r,opCol)); if (RE_OP.test(t)) opDaLinha[r]=t; }
   }
 
   let caixa = null, itens = [], maxTr = 0, seqLinha = 0;
-  for (let r=hdrRow+1; r<=rng.e.r; r++){
-    const desc = txt(v(r,descCol)); const dn = norm(desc);
+  for (let r=hdrRow+1; r<=R1; r++){
+    const desc = txt(v(r,descCol));
     const tr = trCol>=0 ? numero(v(r,trCol)) : null;
     if (tr) maxTr = Math.max(maxTr, tr);
+    let qt = numero(v(r,qtdeCol));
+    // mapas antigos: quantidade na frente da descrição ("2. TRAVA Nº 02")
+    let dPeca = desc; const mQt = desc.match(/^(\d+)\s*\.(?!\d)\s*/);
+    if (mQt){ if (qt===null) qt = +mQt[1]; dPeca = desc.slice(mQt[0].length); }
+    const dn = norm(dPeca);
     if (/DATA/.test(dn) && /LOTE/.test(dn)) continue;
-    const qt = numero(v(r,qtdeCol));
+    if (/^DESCRI/.test(dn) || dn==='QTDE') continue; // linha de cabeçalho repetida
     const iso = norm(v(r,isoCol))==='ISOMANTA';
     const ult = itens[itens.length-1];
     // linha sem nº de trilho dentro da célula mesclada do trilho (ou da peça) de cima: é o mesmo trilho
     const mesmoTrilho = !!ult && tr===null && (continua(r,trCol) || continua(r,descCol));
     if (!desc){
-      if (iso){
-        if (mesmoTrilho) ult.iso = true; // ISOMANTA repetida na 2ª linha do mesmo trilho
-        else avisos.push({t:`Linha ${r+1} da planilha${tr? ' (trilho '+tr+')' : ''}: ISOMANTA marcada sem peça. Não entrou no mapa; confirme se ali fica o estoque de isomanta.`});
+      if (!iso) continue;
+      if (mesmoTrilho) ult.iso = true; // ISOMANTA repetida na 2ª linha do mesmo trilho
+      else if (tr){
+        // trilho só com ISOMANTA: estoque de isomanta do posto, continua tendo um trilho
+        seqLinha++;
+        itens.push({ desc:'ISOMANTA', nome:'ISOMANTA', medida:'', esq:'', dims:[], qt:null, iso:false, op: opNum(opDaLinha[r]), trOrig: tr, par:false, obs:'' });
+        avisos.push({t:`Trilho ${tr}: só ISOMANTA no mapa original (estoque do posto). Entrou no mapa como trilho de ISOMANTA; apague na lista se não precisar.`, info:1});
       }
+      else avisos.push({t:`Linha ${r+1} da planilha: ISOMANTA marcada sem peça e sem trilho. Não entrou no mapa; confira a planilha.`});
       continue;
     }
     if (qt===null && /^\(.*\)$/.test(desc) && ult){ ult.obs = desc.replace(/[()]/g,'').toLowerCase(); continue; }
-    if (!caixa && /^CX\s*1\/1/.test(dn)){ caixa = { desc, ...quebraDescricao(desc, palavrasProduto, tokProduto), tr }; if (tr) avisos.push({t:`A caixa estava no trilho ${tr}. Ela vai no início da esteira e não ocupa trilho.`, info:1}); continue; }
-    const q2 = quebraDescricao(desc, palavrasProduto, tokProduto);
+    if (!caixa && /^CX\s*\d+\s*\/\s*\d+/.test(dn)){ caixa = { desc, ...quebraDescricao(dPeca, palavrasProduto, []), tr }; if (tr) avisos.push({t:`A caixa estava no trilho ${tr}. Ela vai no início da esteira e não ocupa trilho.`, info:1}); continue; }
+    const q2 = quebraDescricao(dPeca, palavrasProduto, tokProduto);
     const esqPlan = esqCols.map(c => numero(v(r,c))).find(x => x!==null);
     const esq = esqPlan != null ? String(esqPlan) : q2.esq;
-    if (mesmoTrilho){
-      // duas peças no mesmo trilho do mapa original (ex.: ISOPOR + PERFIL H): continuam juntas
+    const perfil = SEM_TRILHO.test(q2.nome);
+    if (mesmoTrilho && !perfil){
+      // duas peças no mesmo trilho do mapa original (ex.: dois ISOPOR): continuam juntas
       avisos.push({t:`Trilho ${ult.trOrig}: "${q2.nome}" divide o trilho com "${ult.nome}" no mapa original. Mantive as duas no mesmo trilho.`, info:1});
-      ult.desc += ' / ' + desc; ult.nome += ' / ' + q2.nome;
+      // quantidades diferentes: mostra cada uma no nome e soma na quantidade do trilho
+      if (qt!==null && ult.qt!==null){ if (!/\(\d+\)$/.test(ult.nome)) ult.nome += ` (${ult.qt})`; ult.nome += ` / ${q2.nome} (${qt})`; ult.qt += qt; }
+      else { ult.nome += ' / ' + q2.nome; if (ult.qt===null) ult.qt = qt; }
+      ult.desc += ' / ' + desc;
       if (q2.medida) ult.medida = ult.medida ? ult.medida + ' / ' + q2.medida : q2.medida;
-      ult.iso = ult.iso || iso; if (ult.qt===null) ult.qt = qt; if (!ult.esq) ult.esq = esq;
+      ult.iso = ult.iso || iso; if (!ult.esq) ult.esq = esq;
       continue;
     }
     seqLinha++;
     let trOrig = tr;
     if (trOrig===null){
-      trOrig = trCol>=0 && ult ? ult.trOrig + 1 : seqLinha;
-      if (trCol>=0) avisos.push({t:`"${q2.nome}" (linha ${r+1} da planilha) está sem número de trilho. Considerei o trilho ${trOrig}.`});
+      if (mesmoTrilho) trOrig = ult.trOrig;
+      else {
+        trOrig = trCol>=0 && ult ? ult.trOrig + 1 : seqLinha;
+        if (trCol>=0) avisos.push({t:`"${q2.nome}" (linha ${r+1} da planilha) está sem número de trilho. Considerei o trilho ${trOrig}.`});
+      }
     }
+    if (perfil) avisos.push(iso
+      ? {t:`"${q2.nome}" (trilho ${trOrig}) estava marcado com ISOMANTA no mapa original, mas não ocupa trilho no mapa novo. Marque a isomanta na peça certa da lista.`}
+      : {t:`"${q2.nome}" (trilho ${trOrig} no mapa original) não ocupa trilho: no mapa novo vai em cima da peça vizinha do mesmo posto.`, info:1});
     itens.push({ desc, nome:q2.nome, medida:q2.medida, esq, dims:q2.dims, qt, iso, op: opNum(opDaLinha[r]), trOrig, par:false, obs:'' });
   }
-  if (!itens.length) throw new Error('A aba foi encontrada, mas não li nenhuma peça. Confira se as descrições estão na coluna "DESCRIÇÃO DA PEÇA".');
+  if (!itens.length) throw new Error(`O mapa "${M.rotulo}" não tem nenhuma peça.`);
   // peças sem posto herdam o anterior
   let ultimo = itens.find(i=>i.op)?.op || '01';
   for (const it of itens){ if (!it.op){ it.op = ultimo; avisos.push({t:`"${it.nome}" (trilho ${it.trOrig}) estava sem posto no mapa. Coloquei no OP ${ultimo}; ajuste na lista se for outro.`}); } ultimo = it.op; }
-  return { produto, rev, vel, caixa, itens, nTr: maxTr || Math.max(itens.length, 28), avisos, wsNome, abas, origem:'planilha' };
+  return { produto, rev, vel, caixa, itens, nTr: maxTr || Math.max(itens.length, 28), avisos, wsNome: M.rotulo, mapas: mapas.map(m=>m.rotulo), mapaIdx: idx, origem:'planilha' };
 }
 
 // Excel gerado por este app (aba DADOS): reabre do jeito que foi salvo, para continuar editando
@@ -403,9 +499,9 @@ function lerExportado(wb, nomeArq){
   const d = wb.Sheets['DADOS']; if (!d || !d['!ref'] || !wb.Sheets['MAPA NOVO']) return null;
   const linhas = XLSX.utils.sheet_to_json(d, {defval:''});
   if (!linhas.length || !('Peça no mapa' in linhas[0]) || !('Trilho' in linhas[0])) return null;
-  const porSeq = new Map(); let produto = '', caixa = null;
+  const porSeq = new Map(); let produto = '', caixa = null, rev = '', vel = '';
   for (const l of linhas){
-    produto = produto || txt(l['Produto']);
+    produto = produto || txt(l['Produto']); rev = rev || txt(l['Revisão']); vel = vel || txt(l['Velocidade']);
     if (!caixa && txt(l['Caixa'])) caixa = { nome: txt(l['Caixa']), medida:'' };
     const seq = numero(l['Seq. peça']); if (!seq) continue;
     const e = porSeq.get(seq) || {}; porSeq.set(seq, e);
@@ -416,7 +512,8 @@ function lerExportado(wb, nomeArq){
   }
   const itens = [...porSeq.entries()].sort((a,b)=>a[0]-b[0]).map(([,e]) => ({ par:false, ...e })).filter(e => e.nome);
   if (!itens.length) return null;
-  return { produto: produto || nomeArq.replace(/\.xls[xm]?$/i,''), rev:'', vel:'', caixa, itens, nTr: linhas.length, wsNome:'DADOS', abas:[], origem:'app',
+  const nTr = linhas.filter(l => numero(l['Trilho'])).length;
+  return { produto: produto || nomeArq.replace(/\.xls[xm]?$/i,''), rev, vel, caixa, itens, nTr, wsNome:'DADOS', mapas:[], mapaIdx:0, origem:'app',
     avisos:[{t:'Mapa gerado por este app: abri em "Manter trilhos atuais" para ficar igual ao arquivo salvo.', info:1}] };
 }
 
@@ -426,8 +523,8 @@ function sugerirPares(){
   for (const it of S.itens) it.par = false;
   const blocos = gruposPorOp();
   const nOps = blocos.length;
-  let livres = S.nTr - S.itens.length;
-  const minLivre = modo()==='separar' ? Math.max(0, nOps-1) : 0;
+  let livres = S.nTr - comTrilho().length;
+  const minLivre = modo()==='separar' && S.maxLivre>0 ? Math.max(0, nOps-1) : 0;
   const score = it => { const d = it.dims; const area = d.length>=2 ? (d[0]*d[1])/1e6 : 0.02; return (it.qt||1) * Math.max(area, 0.02) * (it.qt>=4 ? 1.5 : 1); };
   const cand = S.itens.map((it,i)=>({it,i,s:score(it)})).filter(c => !NAO_PAR.test(norm(c.it.nome)) && (c.it.qt||0)>=1 && (c.it.dims.length>=2 || (c.it.qt||0)>=4) && c.s>=0.1).sort((a,b)=>b.s-a.s);
   const opsComPar = new Set();
@@ -441,13 +538,13 @@ function sugerirPares(){
     ? 'Não sugeri pares: com ' + S.nTr + ' trilhos, cada par tiraria o espaço livre entre dois postos. Marque na lista se quiser o par mesmo assim.' : '';
 }
 function temVizinhoLivre(it){
-  const ocup = new Set(S.itens.map(x=>x.trOrig));
+  const ocup = new Set(comTrilho().map(x=>x.trOrig));
   return (it.trOrig+1<=S.nTr && !ocup.has(it.trOrig+1)) || (it.trOrig-1>=1 && !ocup.has(it.trOrig-1));
 }
 
 /* ================= distribuição ================= */
 function gruposPorOp(){
-  const g = []; for (const it of S.itens){ const last = g[g.length-1]; if (last && last.op===it.op) last.itens.push(it); else g.push({op:it.op, itens:[it]}); } return g;
+  const g = []; for (const it of comTrilho()){ const last = g[g.length-1]; if (last && last.op===it.op) last.itens.push(it); else g.push({op:it.op, itens:[it]}); } return g;
 }
 const modo = () => document.getElementById('modoMan').checked ? 'manter' : 'separar';
 
@@ -467,7 +564,12 @@ function distribuir(){
     }
     const gaps = Array(Math.max(0,blocos.length-1)).fill(0);
     const dist = i => blocos[i].tam/2 + gaps[i] + blocos[i+1].tam/2;
-    while (livre>0 && gaps.length){ let k=0; for (let i=1;i<gaps.length;i++) if (dist(i) < dist(k)) k=i; gaps[k]++; livre--; }
+    // livres entre postos: vai para o par de postos mais próximo, até o máximo por intervalo
+    while (livre>0 && gaps.length){
+      let k=-1; for (let i=0;i<gaps.length;i++) if (gaps[i] < S.maxLivre && (k<0 || dist(i) < dist(k))) k=i;
+      if (k<0) break;
+      gaps[k]++; livre--;
+    }
     let p = 0;
     blocos.forEach((b,bi)=>{
       for (const it of b.itens){
@@ -476,19 +578,19 @@ function distribuir(){
       }
       if (bi < gaps.length) for (let g=0; g<gaps[bi]; g++){ slots[p] = {...slots[p], gap:true}; p++; }
     });
-    // sobra no fim (só quando há 1 posto)
+    // sobra no fim da linha
     for (; p<N; p++) slots[p] = {...slots[p], gap:true};
   } else {
-    const ocup = new Map();
-    for (const it of S.itens){
+    const ocup = new Map(); const lista = comTrilho();
+    for (const it of lista){
       if (it.trOrig>N){ avisos.push({t:`"${it.nome}" está no trilho ${it.trOrig}, além dos ${N} trilhos informados.`}); continue; }
       ocup.set(it.trOrig, it);
     }
-    for (const it of S.itens){
+    for (const it of lista){
       if (it.trOrig>N) continue;
       slots[it.trOrig-1] = {...slots[it.trOrig-1], op:it.op, it, lado: null};
     }
-    for (const it of S.itens){
+    for (const it of lista){
       if (!it.par || it.trOrig>N) continue;
       const t = it.trOrig; let alvo = null;
       if (t+1<=N && !slots[t].it) alvo = t+1; else if (t-1>=1 && !slots[t-2].it) alvo = t-1;
@@ -516,17 +618,17 @@ function distancias(cs){ const d=[]; for (let i=1;i<cs.length;i++) d.push(cs[i].
 
 /* ================= render: tabela de peças ================= */
 function renderPecas(){
-  const tb = document.querySelector('#tabPecas tbody'); tb.innerHTML='';
+  const tb = document.querySelector('#tabPecas tbody'); const foco = document.activeElement && document.activeElement.id; tb.innerHTML='';
   const n = S.itens.length;
   S.itens.forEach((it,i)=>{
     const tr = document.createElement('tr'); tr.dataset.i = i;
     if (i>0 && S.itens[i-1].op!==it.op) tr.className='opsep';
     tr.innerHTML = `<td class="seq">${i+1}</td>
       <td><input class="op" type="text" id="op_${i}" value="${esc(it.op)}" aria-label="Posto da peça ${i+1}"></td>
-      <td><input type="text" id="nm_${i}" value="${esc(it.nome)}" placeholder="Nome da peça" aria-label="Nome da peça ${i+1}"><input class="md" type="text" id="md_${i}" value="${esc(it.medida + (it.obs? ' ('+it.obs+')':''))}" placeholder="Medida" aria-label="Medida da peça ${i+1}">${it.desc ? `<span class="orig" title="${esc(it.desc)}">${esc(it.desc)}</span>` : ''}</td>
+      <td><input type="text" id="nm_${i}" value="${esc(it.nome)}" placeholder="Nome da peça" aria-label="Nome da peça ${i+1}"><input class="md" type="text" id="md_${i}" value="${esc(it.medida + (it.obs? ' ('+it.obs+')':''))}" placeholder="Medida" aria-label="Medida da peça ${i+1}"><span class="orig nota" id="nota_${i}" hidden></span>${it.desc ? `<span class="orig" title="${esc(it.desc)}">${esc(it.desc)}</span>` : ''}</td>
       <td><input class="qt" type="text" inputmode="numeric" id="qt_${i}" value="${it.qt ?? ''}" aria-label="Quantidade da peça ${i+1}"></td>
       <td class="ck"><input type="checkbox" id="is_${i}" ${it.iso?'checked':''} aria-label="Isomanta na peça ${i+1}"></td>
-      <td class="ck"><input type="checkbox" id="pa_${i}" ${it.par?'checked':''} aria-label="Trilho duplo na peça ${i+1}"></td>
+      <td class="ck"><input type="checkbox" id="pa_${i}" ${it.par && !semTrilho(it)?'checked':''} aria-label="Trilho duplo na peça ${i+1}"></td>
       <td><input class="qt" type="text" id="eq_${i}" value="${esc(it.esq)}" aria-label="Número do esquema da peça ${i+1}"></td>
       <td><div class="mv"><button type="button" data-acao="sobe" data-i="${i}" ${i===0?'disabled':''} aria-label="Subir peça ${i+1}" title="Subir">↑</button><button type="button" data-acao="desce" data-i="${i}" ${i===n-1?'disabled':''} aria-label="Descer peça ${i+1}" title="Descer">↓</button><button type="button" class="apaga" data-acao="apaga" data-i="${i}" aria-label="Apagar peça ${i+1}" title="Apagar">✕</button></div></td>`;
     tb.appendChild(tr);
@@ -537,7 +639,23 @@ function renderPecas(){
     }
   });
   document.getElementById('addPeca').textContent = `+ Novo posto (OP ${proximoOp()})`;
+  renderNotas();
+  if (foco && document.getElementById(foco)) document.getElementById(foco).focus();
 }
+// linha do PERFIL H: diz em cima de qual peça vai; sem trilho duplo
+function renderNotas(){
+  const hostDe = new Map(); for (const [h, l] of S.sobre) for (const x of l) hostDe.set(x, h);
+  S.itens.forEach((it,i)=>{
+    const nota = document.getElementById('nota_' + i), pa = document.getElementById('pa_' + i); if (!nota || !pa) return;
+    const sem = semTrilho(it); nota.hidden = !sem; pa.disabled = sem; if (sem){ pa.checked = false; it.par = false; }
+    if (sem){ const h = hostDe.get(it); nota.textContent = 'Não ocupa trilho · vai em cima de: ' + (h ? h.nome || 'peça sem nome' : '—'); }
+  });
+}
+// redesenha a tabela depois que o foco/clique terminou (senão o clique em ↑ ↓ ✕ + se perde)
+let apertado = false, redesenhar = false;
+document.addEventListener('pointerdown', ()=>{ apertado = true; }, true);
+document.addEventListener('pointerup', ()=>{ apertado = false; if (redesenhar){ redesenhar = false; setTimeout(renderPecas, 0); } }, true);
+function renderPecasDepois(){ setTimeout(()=>{ if (apertado) redesenhar = true; else renderPecas(); }, 0); }
 const proximoOp = () => pad2(S.itens.reduce((m,it)=>Math.max(m, +it.op || 0), 0) + 1);
 document.querySelector('#tabPecas').addEventListener('input', e=>{
   const m = e.target.id.match(/^(op|nm|md|qt|is|pa|eq)_(\d+)$/); if (!m) return;
@@ -547,12 +665,12 @@ document.querySelector('#tabPecas').addEventListener('input', e=>{
   if (m[1]==='md'){ it.medida = val; it.obs=''; it.dims = dimsDe(val); }
   if (m[1]==='qt') it.qt = /^\d+$/.test(val.trim()) ? +val : null;
   if (m[1]==='is') it.iso = val;
-  if (m[1]==='pa') it.par = val;
+  if (m[1]==='pa') it.par = val && !semTrilho(it);
   if (m[1]==='eq') it.esq = val.trim();
   if (m[1]==='op') { renderPecasSeparadores(); }
   atualizar();
 });
-document.querySelector('#tabPecas').addEventListener('change', e=>{ if (/^op_/.test(e.target.id)) renderPecas(); });
+document.querySelector('#tabPecas').addEventListener('change', e=>{ if (/^op_/.test(e.target.id)) renderPecasDepois(); });
 document.querySelector('#tabPecas').addEventListener('click', e=>{
   const b = e.target.closest('button[data-acao]'); if (!b) return;
   const i = +b.dataset.i, acao = b.dataset.acao;
@@ -575,7 +693,7 @@ document.querySelector('#tabPecas').addEventListener('click', e=>{
 });
 // trilho "atual" da peça nova: o primeiro livre depois da peça de cima (vale para "Manter trilhos atuais")
 function trilhoLivre(depoisDe){
-  const ocup = new Set(S.itens.map(it=>it.trOrig));
+  const ocup = new Set(comTrilho().map(it=>it.trOrig));
   for (let t=(depoisDe||0)+1; t<=S.nTr; t++) if (!ocup.has(t)) return t;
   for (let t=1; t<=S.nTr; t++) if (!ocup.has(t)) return t;
   return S.nTr + 1;
@@ -592,7 +710,8 @@ function renderPecasSeparadores(){ document.querySelectorAll('#tabPecas tbody tr
 /* ================= render: folha ================= */
 let ULTIMO = null;
 function atualizar(){
-  if (S.origem==='zero') S.itens.forEach((it,i)=>{ it.trOrig = i+1; }); // mapa novo: posição atual = ordem da lista
+  if (S.origem==='zero'){ let t = 0; for (const it of S.itens) it.trOrig = semTrilho(it) ? null : ++t; } // mapa novo: posição atual = ordem da lista
+  S.sobre = anfitrioes(); renderNotas();
   const r = distribuir(); ULTIMO = r;
   const av = document.getElementById('avisos'); av.innerHTML='';
   const todos = [...S.avisos, ...(r.avisos||[]), ...(S.avisoPares? [{t:S.avisoPares, info:1}] : [])];
@@ -616,7 +735,7 @@ function linhasMapa(slots){
 
 function renderFolha(slots){
   const f = document.getElementById('folha');
-  const ops = [...new Set(S.itens.map(i=>i.op))];
+  const ops = [...new Set(comTrilho().map(i=>i.op))];
   const pares = S.itens.filter(i=>i.par).length;
   const itensCx = S.itens.reduce((s,i)=>s+(i.qt||0),0);
   const lote = document.getElementById('lote').value.trim();
@@ -649,7 +768,7 @@ function renderFolha(slots){
       else {
         const isoOn = it.iso && s.lado!=='B';
         h += `<td class="tr">${s.tr}</td><td class="par ${s.lado||''}">${s.lado || (s.semEspaco?'SEM PAR':'')}</td>
-        <td class="nome" title="${esc(it.desc)}">${esc(it.nome)}</td><td class="med">${esc(it.medida)}${it.obs? ' ('+esc(it.obs)+')':''}</td>
+        <td class="nome" title="${esc(it.desc)}">${esc(it.nome)}${s.lado!=='B' && S.sobre.has(it) ? `<span class="sobre">${esc(textoEmCima(S.sobre.get(it)))}</span>` : ''}</td><td class="med">${esc(it.medida)}${it.obs? ' ('+esc(it.obs)+')':''}</td>
         <td class="qt">${it.qt ?? ''}</td><td class="iso ${isoOn?'on':''}">${isoOn?'● SIM':''}</td><td class="esq ult">${esc(it.esq)}</td>`;
       }
       h += `</tr>`;
@@ -714,7 +833,7 @@ async function baixarExcel(){
     b.itens.forEach(s=>{
       const row = ws.getRow(r); row.height=22; const it = s.it;
       const isoOn = it && it.iso && s.lado!=='B';
-      const vals = [null,null,s.tr, s.lado||(s.semEspaco?'SEM PAR':null), it?it.nome:'livre', it? (it.medida+(it.obs?' ('+it.obs+')':'')):null, it?it.qt:null, isoOn?'● SIM':null, it&&it.esq? (/^\d+$/.test(it.esq)? +it.esq : it.esq):null];
+      const vals = [null,null,s.tr, s.lado||(s.semEspaco?'SEM PAR':null), it ? it.nome + (s.lado!=='B' ? textoEmCima(S.sobre.get(it)) : '') : 'livre', it? (it.medida+(it.obs?' ('+it.obs+')':'')):null, it?it.qt:null, isoOn?'● SIM':null, it&&it.esq? (/^\d+$/.test(it.esq)? +it.esq : it.esq):null];
       for (let c=2;c<=9;c++){
         const cell=row.getCell(c); if (c>2) cell.value=vals[c-1];
         cell.fill=F(it?base:'FFFAFAFA'); cell.font={name:'Arial',size:9,color:{argb:'FF595959'}};
@@ -742,10 +861,14 @@ async function baixarExcel(){
 
   // aba de dados (lista simples, boa para conferência e Power BI)
   const d = wb.addWorksheet('DADOS');
-  d.columns = [{header:'Produto',key:'p',width:28},{header:'Trilho',key:'t',width:8},{header:'Posto',key:'o',width:8},{header:'Par',key:'a',width:6},{header:'Seq. peça',key:'s',width:9},{header:'Peça no mapa',key:'n',width:28},{header:'Medida',key:'m',width:22},{header:'Qtde',key:'q',width:7},{header:'Isomanta',key:'i',width:9},{header:'Esquema',key:'e',width:9},{header:'Trilho anterior',key:'ta',width:13},{header:'Descrição original',key:'d',width:52},{header:'Caixa',key:'cx',width:30}];
+  d.columns = [{header:'Produto',key:'p',width:28},{header:'Trilho',key:'t',width:8},{header:'Posto',key:'o',width:8},{header:'Par',key:'a',width:6},{header:'Seq. peça',key:'s',width:9},{header:'Peça no mapa',key:'n',width:28},{header:'Medida',key:'m',width:22},{header:'Qtde',key:'q',width:7},{header:'Isomanta',key:'i',width:9},{header:'Esquema',key:'e',width:9},{header:'Trilho anterior',key:'ta',width:13},{header:'Descrição original',key:'d',width:52},{header:'Caixa',key:'cx',width:30},{header:'Observação',key:'ob',width:30},{header:'Revisão',key:'rv',width:11},{header:'Velocidade',key:'vl',width:12}];
   d.getRow(1).font={bold:true};
-  slots.forEach(s=>{ const it=s.it; d.addRow({p:nome, t:s.tr, o:it? 'OP '+it.op : (s.op? 'OP '+s.op:''), a:s.lado||'', s: it? S.itens.indexOf(it)+1 : '', n: it?it.nome:'livre', m: it?it.medida:'', q: it?it.qt:'', i: it&&it.iso&&s.lado!=='B'?'SIM':'', e: it?it.esq:'', ta: it && S.origem!=='zero' ? it.trOrig:'', d: it?it.desc:'', cx: S.caixa ? textoCaixa() : ''}); });
-  d.views=[{state:'frozen',ySplit:1}]; d.autoFilter = 'A1:M1';
+  slots.forEach(s=>{ const it=s.it; d.addRow({p:nome, t:s.tr, o:it? 'OP '+it.op : (s.op? 'OP '+s.op:''), a:s.lado||'', s: it? S.itens.indexOf(it)+1 : '', n: it?it.nome:'livre', m: it?it.medida:'', q: it?it.qt:'', i: it&&it.iso&&s.lado!=='B'?'SIM':'', e: it?it.esq:'', ta: it && S.origem!=='zero' ? it.trOrig:'', d: it?it.desc:'', cx: S.caixa ? textoCaixa() : '', rv: S.rev, vl: S.vel}); });
+  for (const [host, lista] of S.sobre) for (const it of lista){
+    const tHost = slots.find(s => s.it===host && s.lado!=='B');
+    d.addRow({p:nome, t:'', o:'OP '+it.op, a:'', s: S.itens.indexOf(it)+1, n: it.nome, m: it.medida, q: it.qt, i:'', e: it.esq, ta: S.origem!=='zero' ? (it.trOrig ?? '') : '', d: it.desc, cx: S.caixa ? textoCaixa() : '', ob: `não ocupa trilho: em cima de ${host.nome}${tHost ? ' (trilho ' + tHost.tr + ')' : ''}`, rv: S.rev, vl: S.vel});
+  }
+  d.views=[{state:'frozen',ySplit:1}]; d.autoFilter = 'A1:P1';
 
   const buf = await wb.xlsx.writeBuffer();
   const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
@@ -763,17 +886,17 @@ function preencherCampos(){
   document.getElementById('caixa').value = textoCaixa();
   document.getElementById('lote').value = '';
   const sel = document.getElementById('aba');
-  sel.innerHTML = S.abas.map(n => `<option${n===S.aba?' selected':''}>${esc(n)}</option>`).join('');
-  document.getElementById('abaWrap').hidden = S.abas.length < 2;
+  sel.innerHTML = S.mapas.map((n,i) => `<option value="${i}"${i===S.mapaIdx?' selected':''}>${esc(n)}</option>`).join('');
+  document.getElementById('abaWrap').hidden = S.mapas.length < 2;
 }
-function carregar(buf, nomeArq, abaPedida){
+function carregar(buf, nomeArq, idxPedido){
   const e = document.getElementById('erroLeitura'); e.hidden = true;
   try{
-    const r = lerPlanilha(buf, nomeArq, abaPedida);
-    Object.assign(S, r, {arquivo:nomeArq, aba:r.wsNome, buf, avisoPares:''});
+    const r = lerPlanilha(buf, nomeArq, idxPedido);
+    Object.assign(S, r, {arquivo:nomeArq, buf, avisoPares:''});
     preencherCampos();
     document.getElementById(r.origem==='app' ? 'modoMan' : 'modoSep').checked = true;
-    document.getElementById('fonte').innerHTML = `Lido: <strong>${esc(nomeArq)}</strong> · aba "${esc(r.wsNome)}" · ${S.itens.length} peças`;
+    document.getElementById('fonte').innerHTML = `Lido: <strong>${esc(nomeArq)}</strong> · "${esc(r.wsNome)}" · ${S.itens.length} peças`;
     if (r.origem!=='app') sugerirPares(); // arquivo do app já vem com os pares decididos
     renderPecas(); atualizar();
   } catch(err){
@@ -784,7 +907,7 @@ function carregar(buf, nomeArq, abaPedida){
 function novoMapa(){
   if (S.origem==='zero' && S.itens.some(i=>i.nome) && !confirm('Começar outro mapa do zero? O mapa atual será descartado (baixe o Excel antes, se quiser guardar).')) return;
   const nTr = +document.getElementById('nTr').value;
-  Object.assign(S, { produto:'', rev:'', vel:'', caixa:null, itens:[], avisos:[], arquivo:'', origem:'zero', abas:[], aba:'', buf:null, avisoPares:'', nTr: nTr>=5 && nTr<=80 ? nTr : 30 });
+  Object.assign(S, { produto:'', rev:'', vel:'', caixa:null, itens:[], avisos:[], arquivo:'', origem:'zero', mapas:[], mapaIdx:0, buf:null, avisoPares:'', nTr: nTr>=5 && nTr<=80 ? nTr : 30 });
   S.itens.push(novaPeca('01', 0));
   preencherCampos();
   document.getElementById('modoSep').checked = true;
@@ -798,9 +921,16 @@ document.getElementById('arq').addEventListener('change', ev=>{
   const fr = new FileReader(); fr.onload = () => carregar(new Uint8Array(fr.result), f.name); fr.readAsArrayBuffer(f); ev.target.value='';
 });
 document.querySelector('label[for="arq"]').addEventListener('keydown', e=>{ if (e.key==='Enter'||e.key===' '){ e.preventDefault(); document.getElementById('arq').click(); } });
-document.getElementById('aba').addEventListener('change', e=>{ if (S.buf) carregar(S.buf, S.arquivo, e.target.value); });
+document.getElementById('aba').addEventListener('change', e=>{ if (S.buf) carregar(S.buf, S.arquivo, +e.target.value); });
 document.getElementById('novo').addEventListener('click', novoMapa);
 document.getElementById('nTr').addEventListener('input', e=>{ const v=+e.target.value; if (v>=5 && v<=80){ S.nTr=v; S.avisoPares=''; atualizar(); } });
+// máximo de livres entre postos: regra da linha, fica lembrado neste computador
+try { const v = localStorage.getItem('maxLivre'); if (v!==null && +v>=0 && +v<=20){ S.maxLivre = +v; document.getElementById('maxLivre').value = v; } } catch(e){}
+document.getElementById('maxLivre').addEventListener('input', e=>{
+  const t = e.target.value.trim(); const v = +t; if (t==='' || !Number.isInteger(v) || v<0 || v>20) return;
+  S.maxLivre = v; try { localStorage.setItem('maxLivre', String(v)); } catch(err){}
+  atualizar();
+});
 document.getElementById('lote').addEventListener('input', atualizar);
 document.getElementById('nome').addEventListener('input', e=>{ if (S.origem==='zero') S.produto = e.target.value.trim(); atualizar(); });
 document.getElementById('caixa').addEventListener('input', e=>{ const t = e.target.value.trim().toUpperCase(); S.caixa = t ? { nome:t, medida:'' } : null; atualizar(); });
