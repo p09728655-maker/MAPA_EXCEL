@@ -234,7 +234,7 @@ const dimsDe = s => { const m = norm(s).match(/(\d+)\s*X\s*(\d+)(?:\s*X\s*(\d+))
 /* ================= nomes curtos ================= */
 const ABREV = [
   ['C F GAV','CONTRA-FRENTE GAVETA'],['LAT DIR/ESQ','LATERAL DIR/ESQ'],['BASE DIR/ESQ','BASE DIR/ESQ'],
-  ['LAT GAV','LATERAL GAVETA'],['FUNDO GAV','FUNDO GAVETA'],['FUNDO TRAS','FUNDO TRASEIRO'],['ACESSORIOS','ACESSÓRIOS'],['FRENTE GAV','FRENTE GAVETA'],['F GAV','FUNDO GAVETA'],['F TRAS','FUNDO TRASEIRO'],
+  ['LAT GAV','LATERAL GAVETA'],['FRT GAV','FRENTE GAVETA'],['FUNDO GAV','FUNDO GAVETA'],['FUNDO TRAS','FUNDO TRASEIRO'],['ACESSORIOS','ACESSÓRIOS'],['FRENTE GAV','FRENTE GAVETA'],['F GAV','FUNDO GAVETA'],['F TRAS','FUNDO TRASEIRO'],
   ['LAT DIR','LATERAL DIREITA'],['LAT ESQ','LATERAL ESQUERDA'],['LAT INT','LATERAL INTERNA'],['LAT EXT','LATERAL EXTERNA'],
   ['ROD/MOLD','RODAPÉ / MOLDURA'],['PRAT MOV','PRATELEIRA MÓVEL'],['MOLD ESPELHO','MOLDURA ESPELHO'],['MOLD','MOLDURA'],
   ['BATENTE PTA','BATENTE PORTA'],['PTA DIR','PORTA DIREITA'],['PTA ESQ','PORTA ESQUERDA'],['FUNDO SUP','FUNDO SUPERIOR'],['REGUA SUP','RÉGUA SUPERIOR'],['REGUA FRONTAL','RÉGUA FRONTAL'],
@@ -355,12 +355,19 @@ function mapasDoArquivo(wb){
 function lerPlanilha(buf, nomeArq, idxPedido){
   const wb = XLSX.read(buf, {type:'array'});
   const doApp = lerExportado(wb, nomeArq); if (doApp) return doApp;
-  const mapas = mapasDoArquivo(wb);
-  if (!mapas.length) throw new Error('Não encontrei mapa dos trilhos neste arquivo (título "MAPA DOS TRILHOS" ou coluna "DESCRIÇÃO DA PEÇA").');
+  // só conta como mapa o que dá para ler (aba de instruções com o título no texto, por exemplo, fica de fora)
+  const lidos = []; let erro = null;
+  for (const m of mapasDoArquivo(wb)){ try { lidos.push({ m, r: lerSecao(wb, m, nomeArq) }); } catch(e){ erro = erro || e; } }
+  if (!lidos.length) throw erro || new Error('Não encontrei mapa dos trilhos neste arquivo (título "MAPA DOS TRILHOS" ou coluna "DESCRIÇÃO DA PEÇA").');
   // sem escolha do usuário: o 1º mapa da última aba com MAPA no nome; se nenhuma tiver, o 1º mapa
-  let idx = mapas[idxPedido] ? idxPedido : -1;
-  if (idx < 0){ const comNome = mapas.filter(m => /MAPA/i.test(m.aba)); const aba = comNome.length ? comNome[comNome.length-1].aba : mapas[0].aba; idx = mapas.findIndex(m => m.aba===aba); }
-  const M = mapas[idx]; const ws = wb.Sheets[M.aba]; const R0 = M.ini, R1 = M.fim;
+  let idx = lidos[idxPedido] ? idxPedido : -1;
+  if (idx < 0){ const comNome = lidos.filter(x => /MAPA/i.test(x.m.aba)); const aba = comNome.length ? comNome[comNome.length-1].m.aba : lidos[0].m.aba; idx = lidos.findIndex(x => x.m.aba===aba); }
+  const { m: M, r } = lidos[idx];
+  if (lidos.length > 1) r.avisos.unshift({t:`O arquivo tem ${lidos.length} mapas (${lidos.map(x=>x.m.rotulo).join('; ')}). Estou usando "${M.rotulo}". Para outro, troque em "Mapa da planilha".`});
+  return { ...r, wsNome: M.rotulo, mapas: lidos.map(x=>x.m.rotulo), mapaIdx: idx, origem:'planilha' };
+}
+function lerSecao(wb, M, nomeArq){
+  const ws = wb.Sheets[M.aba]; const R0 = M.ini, R1 = M.fim;
   const rng = XLSX.utils.decode_range(ws['!ref']);
   const v = (r,c) => { if (r<0 || c<0) return null; const cell = ws[XLSX.utils.encode_cell({r,c})]; return cell ? cell.v : null; };
   const merges = (ws['!merges'] || []).filter(m => m.e.r >= R0 && m.s.r <= R1);
@@ -378,6 +385,7 @@ function lerPlanilha(buf, nomeArq, idxPedido){
   const avisos = [];
   if (descCol<0){
     // mapa antigo sem a linha "DESCRIÇÃO DA PEÇA": a coluna das peças é a que tem mais textos
+    if (trCol<0) throw new Error('Achei o título do mapa, mas não a coluna "Nº TRILHO".');
     hdrRow = titRow>=0 ? titRow+1 : R0;
     const conta = {};
     for (let r=hdrRow+1; r<=R1; r++) for (let c=rng.s.c; c<=rng.e.c; c++){
@@ -406,17 +414,16 @@ function lerPlanilha(buf, nomeArq, idxPedido){
     for (let k=c; k<=fim; k++) if (k!==descCol && k!==trCol && k!==qtdeCol && k!==isoCol && k!==opCol) esqCols.push(k);
     break;
   }
-  if (mapas.length > 1) avisos.unshift({t:`O arquivo tem ${mapas.length} mapas (${mapas.map(m=>m.rotulo).join('; ')}). Estou usando "${M.rotulo}". Para outro, troque em "Mapa da planilha".`});
   if (trCol<0) avisos.push({t:'Não achei a coluna "Nº TRILHO". As posições atuais foram numeradas pela ordem das linhas.'});
 
   // título, data e velocidade
   let produto = '', rev = '', vel = '';
   const reData = /\d{2}\/\d{2}\/\d{2,4}/;
-  if (titRow>=0){ const t = txt(v(titRow+1,titCol)); const m = t.match(reData); rev = m ? m[0] : ''; produto = t.replace(reData,'').trim(); }
+  if (titRow>=0){ const t = txt(v(titRow+1,titCol)); const m = t.match(reData); rev = m ? m[0] : ''; produto = t.replace(reData,'').replace(/\(\s*(MUDOU|MUDAN[ÇC]A|ALTERADO|ALTERA[ÇC][ÃA]O)?\s*\)/i,'').replace(/\s+/g,' ').trim(); }
   if (!produto) produto = nomeArq.replace(/\.xls[xm]?$/i,'').replace(/_/g,' ');
   if (velRow>=0){ const a=v(velRow+1,velCol), b=v(velRow+1,velCol+1); vel = [a,b].filter(x=>typeof x==='number').map(x=>x.toFixed(2).replace('.',',')).join(' / '); }
   // "CX 01/03" no título indica a caixa, não faz parte do nome das peças
-  const tokProduto = norm(produto).replace(/\bCX\s*\d+\s*\/\s*\d+/,' ').split(/[\s\/]+/).filter(Boolean);
+  const tokProduto = norm(produto).replace(/\bCX\s*\d+(\s*\/\s*\d+)?/,' ').split(/[\s\/]+/).filter(Boolean);
   const palavrasProduto = new Set(tokProduto.filter(w=>w.length>1 && !/^\d+$/.test(w)));
 
   // postos (células mescladas e soltas na coluna OP)
@@ -457,7 +464,7 @@ function lerPlanilha(buf, nomeArq, idxPedido){
       continue;
     }
     if (qt===null && /^\(.*\)$/.test(desc) && ult){ ult.obs = desc.replace(/[()]/g,'').toLowerCase(); continue; }
-    if (!caixa && /^CX\s*\d+\s*\/\s*\d+/.test(dn)){ caixa = { desc, ...quebraDescricao(dPeca, palavrasProduto, []), tr }; if (tr) avisos.push({t:`A caixa estava no trilho ${tr}. Ela vai no início da esteira e não ocupa trilho.`, info:1}); continue; }
+    if (!caixa && /^CX\s*(\d+\s*\/\s*\d+|TRIPLEX\b)/.test(dn)){ caixa = { desc, ...quebraDescricao(dPeca, palavrasProduto, []), tr }; if (tr) avisos.push({t:`A caixa estava no trilho ${tr}. Ela vai no início da esteira e não ocupa trilho.`, info:1}); continue; }
     const q2 = quebraDescricao(dPeca, palavrasProduto, tokProduto);
     const esqPlan = esqCols.map(c => numero(v(r,c))).find(x => x!==null);
     const esq = esqPlan != null ? String(esqPlan) : q2.esq;
@@ -488,10 +495,12 @@ function lerPlanilha(buf, nomeArq, idxPedido){
     itens.push({ desc, nome:q2.nome, medida:q2.medida, esq, dims:q2.dims, qt, iso, op: opNum(opDaLinha[r]), trOrig, par:false, obs:'' });
   }
   if (!itens.length) throw new Error(`O mapa "${M.rotulo}" não tem nenhuma peça.`);
+  // texto que só cita o mapa (ex.: aba de instruções) não é mapa: precisa de coluna de trilho com números
+  if (trCol>=0 && (trCol===descCol || !maxTr)) throw new Error(`"${M.rotulo}" não parece um mapa dos trilhos (sem números de trilho).`);
   // peças sem posto herdam o anterior
   let ultimo = itens.find(i=>i.op)?.op || '01';
   for (const it of itens){ if (!it.op){ it.op = ultimo; avisos.push({t:`"${it.nome}" (trilho ${it.trOrig}) estava sem posto no mapa. Coloquei no OP ${ultimo}; ajuste na lista se for outro.`}); } ultimo = it.op; }
-  return { produto, rev, vel, caixa, itens, nTr: maxTr || Math.max(itens.length, 28), avisos, wsNome: M.rotulo, mapas: mapas.map(m=>m.rotulo), mapaIdx: idx, origem:'planilha' };
+  return { produto, rev, vel, caixa, itens, nTr: maxTr || Math.max(itens.length, 28), avisos };
 }
 
 // Excel gerado por este app (aba DADOS): reabre do jeito que foi salvo, para continuar editando
@@ -661,7 +670,11 @@ document.querySelector('#tabPecas').addEventListener('input', e=>{
   const m = e.target.id.match(/^(op|nm|md|qt|is|pa|eq)_(\d+)$/); if (!m) return;
   const it = S.itens[+m[2]]; const val = e.target.type==='checkbox' ? e.target.checked : e.target.value;
   if (m[1]==='op'){ const n = String(val).match(/\d+/); it.op = n ? pad2(+n[0]) : it.op; }
-  if (m[1]==='nm') it.nome = val.toUpperCase();
+  if (m[1]==='nm'){ // maiúsculas já no campo, igual ao mapa, sem mexer no cursor
+    const el = e.target, up = val.toUpperCase();
+    if (up!==val){ const a = el.selectionStart, b = el.selectionEnd; el.value = up; el.setSelectionRange(a, b); }
+    it.nome = up;
+  }
   if (m[1]==='md'){ it.medida = val; it.obs=''; it.dims = dimsDe(val); }
   if (m[1]==='qt') it.qt = /^\d+$/.test(val.trim()) ? +val : null;
   if (m[1]==='is') it.iso = val;
