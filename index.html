@@ -143,6 +143,8 @@ table.mapa tr.livre td.nome{font-weight:400;font-style:italic;color:#A6A6A6;font
 table.mapa tr.livre td.tr{color:#BFBFBF}
 table.mapa tr.gap td:not(.est){background:#fff;height:calc(var(--rowh)*.72)}
 table.mapa tr.gap td.tr{font-size:9pt}
+table.mapa tr.gramp td:not(.est):not(.op){border-top:2px dashed #C00000}
+.folha .leg .gr{display:inline-block;width:7mm;border-top:2px dashed #C00000;vertical-align:middle;margin-right:1.5mm}
 table.mapa tr.semesp td.par{color:#C00000;font-size:6pt;font-weight:700;white-space:normal;line-height:1;padding:0 .5mm}
 .folha .leg{display:flex;flex-wrap:wrap;gap:2mm 5mm;margin-top:2.5mm;font-size:7.5pt;align-items:center}
 .folha .leg i{display:inline-block;min-width:9mm;text-align:center;font-style:normal;font-weight:700;padding:.5mm 1mm;border:.2mm solid #BFBFBF;margin-right:1.5mm}
@@ -160,18 +162,14 @@ table.mapa tr.semesp td.par{color:#C00000;font-size:6pt;font-weight:700;white-sp
 </style>
 </head>
 <body>
-<header class="topo"><h1>Conversor de Mapas de Trilhos</h1><span>Embalagem · Patrimar Móveis</span><button class="versao" id="versao" type="button" title="Ver o que mudou nesta versão">v1.2 · 14/10/2026</button><button class="btn instalar" id="instalar" type="button" hidden>Instalar app</button></header>
+<header class="topo"><h1>Conversor de Mapas de Trilhos</h1><span>Embalagem · Patrimar Móveis</span><button class="versao" id="versao" type="button" title="Ver o que mudou nesta versão">v1.3 · 14/10/2026</button><button class="btn instalar" id="instalar" type="button" hidden>Instalar app</button></header>
 <dialog class="novidades" id="novidades" aria-labelledby="novTit">
-  <h2 id="novTit">Novidades da versão 1.2</h2>
+  <h2 id="novTit">Novidades da versão 1.3</h2>
   <p>Atualizado em 14/10/2026</p>
   <ul>
-    <li><b>+ Peça no OP xx</b> no fim de cada posto e <b>+ Novo posto</b> para montar o mapa na tela.</li>
-    <li>Produto com mais de um volume: cada volume vira um mapa, escolhido em "Mapa da planilha".</li>
-    <li>Mapas antigos (sem "DESCRIÇÃO DA PEÇA") e posto escrito "OP.01" agora são lidos.</li>
-    <li>PERFIL H não ocupa trilho: vai em cima da peça vizinha do mesmo posto.</li>
-    <li>"Separar operadores" tem um máximo de trilhos livres entre postos (padrão 3).</li>
-    <li>Clicar em ↑ ↓ ✕ + logo depois de digitar não perde mais o clique.</li>
-    <li>O Excel guarda PERFIL H, revisão e velocidade, e reabre igual.</li>
+    <li><b>Lado da esteira</b> (em Regras): escolha <b>Esquerdo · 36 trilhos</b> ou <b>Direito · 39 trilhos</b>, conforme o layout novo da embalagem. Fica lembrado neste computador.</li>
+    <li>No lado esquerdo, o mapa marca a <b>Grampeadora</b> com uma linha tracejada vermelha entre os trilhos 27 e 28.</li>
+    <li>O mapa impresso e o Excel mostram o lado da linha no cabeçalho.</li>
   </ul>
   <form method="dialog"><button class="btn prim" type="submit">Entendi</button></form>
 </dialog>
@@ -196,6 +194,7 @@ table.mapa tr.semesp td.par{color:#C00000;font-size:6pt;font-weight:700;white-sp
         <label><input type="radio" name="modo" id="modoMan" value="manter"><span><strong>Manter trilhos atuais</strong><small>Cada peça fica no trilho de hoje. O trilho B entra no livre ao lado, se houver.</small></span></label>
       </div>
       <div class="campos">
+        <label class="c" for="lado" title="Layout da embalagem de 13/10/2026" style="grid-column:1/-1">Lado da esteira<select id="lado"><option value="">Outro: digitar o nº de trilhos</option><option value="E">Esquerdo · 36 trilhos (com Grampeadora)</option><option value="D">Direito · 39 trilhos</option></select></label>
         <label class="c" for="nTr">Trilhos na linha<input id="nTr" type="number" min="5" max="80" step="1"></label>
         <label class="c" for="maxLivre" title="Usado em 'Separar operadores'">Máx. livres entre postos<input id="maxLivre" type="number" min="0" max="20" step="1" value="3"></label>
         <label class="c" for="lote">Lote (opcional)<input id="lote" type="text" inputmode="numeric" placeholder="ex.: 2300"></label>
@@ -242,7 +241,10 @@ const AMOSTRA_B64 = "UEsDBBQABgAIAAAAIQBBN4LPbgEAAAQFAAATAAgCW0NvbnRlbnRfVHlwZXN
 
 /* ================= estado ================= */
 // origem: 'planilha' (mapa antigo), 'app' (Excel gerado por este app) ou 'zero' (criado aqui)
-const S = { produto:'', rev:'', vel:'', nTr:30, maxLivre:3, caixa:null, itens:[], avisos:[], arquivo:'', origem:'planilha', mapas:[], mapaIdx:0, sobre:new Map(), buf:null, avisoPares:'' };
+// layout da embalagem (13/10/2026): uma fila de trilhos por produto, de um lado da esteira.
+// gramp = a Grampeadora fica depois deste trilho, contando a partir do início da esteira.
+const LADOS = { E:{nome:'lado esquerdo', n:36, gramp:27}, D:{nome:'lado direito', n:39, gramp:null} };
+const S = { lado:'', produto:'', rev:'', vel:'', nTr:30, maxLivre:3, caixa:null, itens:[], avisos:[], arquivo:'', origem:'planilha', mapas:[], mapaIdx:0, sobre:new Map(), buf:null, avisoPares:'' };
 
 /* ================= utilidades ================= */
 const norm = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
@@ -765,7 +767,7 @@ function renderFolha(slots){
   const n = slots.length;
   const rowh = Math.min(7.6, Math.max(4.6, 205 / (n + 1)));
   f.style.setProperty('--rowh', rowh.toFixed(2)+'mm');
-  const meta = [S.rev && 'Revisão: '+S.rev, S.vel && 'Velocidade esteira: '+S.vel].filter(Boolean).join(' · ');
+  const meta = [LADOS[S.lado] && 'Linha: '+LADOS[S.lado].nome, S.rev && 'Revisão: '+S.rev, S.vel && 'Velocidade esteira: '+S.vel].filter(Boolean).join(' · ');
   let h = `<div class="faixa">MAPA DOS TRILHOS — EMBALAGEM</div>
     <div class="cab"><div class="prod">${esc(nome)}</div><div class="meta">${esc(meta)}</div></div>
     <div class="linha2">Operadores: ${ops.length} &nbsp;|&nbsp; Pares A/B: ${pares} &nbsp;|&nbsp; Itens por caixa: ${itensCx}${lote? ' &nbsp;|&nbsp; <b>Lote: '+esc(lote)+'</b>':''}</div>
@@ -776,13 +778,13 @@ function renderFolha(slots){
   const blocos = linhasMapa(slots); let first = true; let bi = 0;
   for (const b of blocos){
     if (b.tipo==='gap'){
-      h += `<tr class="gap">${first? `<td class="est" rowspan="${n}"><div>SENTIDO DA ESTEIRA ▼</div></td>`:''}<td></td><td class="tr">${b.s.tr}</td><td></td><td class="nome" style="font-weight:400;font-style:italic;color:#A6A6A6;font-size:7.5pt">livre</td><td></td><td></td><td></td><td></td></tr>`;
+      h += `<tr class="gap${b.s.tr===grampDepois()+1 && grampDepois() ? ' gramp':''}">${first? `<td class="est" rowspan="${n}"><div>SENTIDO DA ESTEIRA ▼</div></td>`:''}<td></td><td class="tr">${b.s.tr}</td><td></td><td class="nome" style="font-weight:400;font-style:italic;color:#A6A6A6;font-size:7.5pt">livre</td><td></td><td></td><td></td><td></td></tr>`;
       first = false; continue;
     }
     const cls = (bi++ % 2===0) ? 'bA':'bB';
     b.itens.forEach((s,k)=>{
       const it = s.it, livre = !it;
-      const c = [cls]; if (k===0) c.push('ini'); if (k===b.itens.length-1) c.push('fim'); if (livre) c.push('livre'); if (s.lado) c.push('temPar'); if (s.semEspaco) c.push('semesp');
+      const c = [cls]; if (k===0) c.push('ini'); if (k===b.itens.length-1) c.push('fim'); if (livre) c.push('livre'); if (s.lado) c.push('temPar'); if (s.semEspaco) c.push('semesp'); if (grampDepois() && s.tr===grampDepois()+1) c.push('gramp');
       h += `<tr class="${c.join(' ')}">`;
       if (first){ h += `<td class="est" rowspan="${n}"><div>SENTIDO DA ESTEIRA ▼</div></td>`; first=false; }
       if (k===0) h += `<td class="op" rowspan="${b.itens.length}">OP<br>${esc(b.op)}</td>`;
@@ -797,7 +799,7 @@ function renderFolha(slots){
     });
   }
   h += `</tbody></table>
-    <div class="leg"><span><i style="background:var(--m-pa);color:#fff">A</i>pegar daqui primeiro, até zerar</span><span><i style="background:var(--m-pb);color:var(--m-navy)">B</i>mesma peça; usar quando A zerar</span><span><i style="background:var(--m-iso);color:var(--m-iso-t)">● SIM</i>recebe isomanta (uma vez)</span><span><i style="color:#A6A6A6">livre</i>trilho sem peça</span></div>
+    <div class="leg"><span><i style="background:var(--m-pa);color:#fff">A</i>pegar daqui primeiro, até zerar</span><span><i style="background:var(--m-pb);color:var(--m-navy)">B</i>mesma peça; usar quando A zerar</span><span><i style="background:var(--m-iso);color:var(--m-iso-t)">● SIM</i>recebe isomanta (uma vez)</span><span><i style="color:#A6A6A6">livre</i>trilho sem peça</span>${grampDepois()? `<span><i class="gr"></i>Grampeadora (entre os trilhos ${grampDepois()} e ${grampDepois()+1})</span>`:''}</div>
     <div class="regra">REGRA A/B: zerou o A → vira a placa "VAZIO" → passa para o B. Abastecedor só repõe trilho com placa VAZIO. Nunca misturar lote ou cor entre A e B.</div>`;
   f.innerHTML = h;
 }
@@ -833,10 +835,10 @@ async function baixarExcel(){
   ws.columns = [4.5,8,9,7,32,24,9,11,8].map(w=>({width:w}));
   const F = c => ({type:'pattern', pattern:'solid', fgColor:{argb:c}});
   const thin = {style:'thin', color:{argb:'FFBFBFBF'}}, med = {style:'medium', color:{argb:'FF000000'}};
-  const NAVY='FF1F3A5F', OPA='FFDCE6F1', OPB='FFF2F2F2', PA='FF2E75B6', PB='FF9DC3E6', ISO='FFF4B183';
+  const GR={style:'mediumDashed',color:{argb:'FFC00000'}}, NAVY='FF1F3A5F', OPA='FFDCE6F1', OPB='FFF2F2F2', PA='FF2E75B6', PB='FF9DC3E6', ISO='FFF4B183';
   ws.mergeCells('A1:I1'); Object.assign(ws.getCell('A1'), {value:'MAPA DOS TRILHOS — EMBALAGEM', font:{name:'Arial',size:10,bold:true,color:{argb:'FFFFFFFF'}}, fill:F(NAVY)});
   ws.mergeCells('A2:F2'); Object.assign(ws.getCell('A2'), {value:nome, font:{name:'Arial',size:20,bold:true,color:{argb:NAVY}}, alignment:{vertical:'middle'}}); ws.getRow(2).height=34;
-  ws.mergeCells('G2:I2'); Object.assign(ws.getCell('G2'), {value:[S.rev&&'Revisão: '+S.rev, S.vel&&'Velocidade: '+S.vel].filter(Boolean).join('  '), font:{name:'Arial',size:8,color:{argb:'FF595959'}}, alignment:{wrapText:true,vertical:'middle'}});
+  ws.mergeCells('G2:I2'); Object.assign(ws.getCell('G2'), {value:[LADOS[S.lado]&&'Linha: '+LADOS[S.lado].nome, S.rev&&'Revisão: '+S.rev, S.vel&&'Velocidade: '+S.vel].filter(Boolean).join('  '), font:{name:'Arial',size:8,color:{argb:'FF595959'}}, alignment:{wrapText:true,vertical:'middle'}});
   ws.mergeCells('A3:I3'); Object.assign(ws.getCell('A3'), {value:`Operadores: ${new Set(S.itens.map(i=>i.op)).size}   |   Pares A/B: ${S.itens.filter(i=>i.par).length}   |   Itens por caixa: ${S.itens.reduce((s,i)=>s+(i.qt||0),0)}${lote?'   |   Lote: '+lote:''}`, font:{name:'Arial',size:9,color:{argb:'FF595959'}}});
   ws.mergeCells('A4:I4'); Object.assign(ws.getCell('A4'), {value:`DATA: ____/____/______        LOTE: ${lote||'________________'}        CONFERENTE: ______________________`, font:{name:'Arial',size:10,bold:true}}); ws.getRow(4).height=24;
   if (S.caixa){ ws.mergeCells('A5:I5'); Object.assign(ws.getCell('A5'), {value:`CAIXA: ${textoCaixa()}   —   vai no INÍCIO DA ESTEIRA (não ocupa trilho)`, font:{name:'Arial',size:12,bold:true,color:{argb:'FF5C3A12'}}, fill:F('FFE8D3B5'), border:{top:med,bottom:med,left:med,right:med}, alignment:{vertical:'middle'}}); ws.getRow(5).height=26; }
@@ -849,7 +851,7 @@ async function baixarExcel(){
     if (b.tipo==='gap'){
       const row = ws.getRow(r); row.height=17; row.getCell(3).value=b.s.tr; row.getCell(3).font={name:'Arial',size:10,bold:true,color:{argb:'FFBFBFBF'}}; row.getCell(3).alignment={horizontal:'center'};
       row.getCell(5).value='livre'; row.getCell(5).font={name:'Arial',size:9,italic:true,color:{argb:'FFA6A6A6'}};
-      for (let c=2;c<=9;c++) row.getCell(c).border={bottom:thin}; r++; continue;
+      for (let c=2;c<=9;c++) row.getCell(c).border={bottom:thin, top: grampDepois() && b.s.tr===grampDepois()+1 ? GR : undefined}; r++; continue;
     }
     const base = (bi++%2===0)?OPA:OPB, a=r, z=r+b.itens.length-1;
     b.itens.forEach(s=>{
@@ -862,6 +864,7 @@ async function baixarExcel(){
         cell.alignment={horizontal:(c===5||c===6)?'left':'center', vertical:'middle', indent:(c===5||c===6)?1:0};
         cell.border={bottom:thin, top: r===a?med:undefined, right: c===9?med:undefined};
         if (r===z) cell.border = {...cell.border, bottom:med};
+        if (grampDepois() && s.tr===grampDepois()+1 && c>2) cell.border = {...cell.border, top:GR};
       }
       row.getCell(3).font={name:'Arial',size:14,bold:true,color:{argb: it?NAVY:'FFBFBFBF'}};
       if (it){ row.getCell(5).font={name:'Arial',size:12,bold:true}; if (it.qt) row.getCell(7).font={name:'Arial',size:16,bold:true}; }
@@ -876,7 +879,7 @@ async function baixarExcel(){
     if (z===a) ws.getRow(a).height=32;
   }
   r++;
-  ws.mergeCells(r,1,r,9); Object.assign(ws.getCell(r,1), {value:'LEGENDA:  A = pegar daqui primeiro, até zerar   ·   B = mesma peça; usar quando A zerar   ·   ● SIM = recebe isomanta (uma vez)   ·   livre = trilho sem peça', font:{name:'Arial',size:9}});
+  ws.mergeCells(r,1,r,9); Object.assign(ws.getCell(r,1), {value:'LEGENDA:  A = pegar daqui primeiro, até zerar   ·   B = mesma peça; usar quando A zerar   ·   ● SIM = recebe isomanta (uma vez)   ·   livre = trilho sem peça'+(grampDepois()?`   ·   - - - = Grampeadora (entre os trilhos ${grampDepois()} e ${grampDepois()+1})`:''), font:{name:'Arial',size:9}});
   r++;
   ws.mergeCells(r,1,r,9); Object.assign(ws.getCell(r,1), {value:'REGRA A/B: zerou o A → vira a placa "VAZIO" → passa para o B. Abastecedor só repõe trilho com placa VAZIO. Nunca misturar lote ou cor entre A e B.', font:{name:'Arial',size:9,bold:true,color:{argb:'FFC00000'}}, fill:F('FFFFF2F2'), alignment:{wrapText:true,vertical:'middle'}}); ws.getRow(r).height=28;
   ws.pageSetup.printArea = `A1:I${r}`;
@@ -901,9 +904,15 @@ async function baixarExcel(){
 }
 
 /* ================= carregar ================= */
+function aplicarLado(){
+  const L = LADOS[S.lado], inp = document.getElementById('nTr');
+  if (L) S.nTr = L.n;
+  inp.disabled = !!L; inp.value = S.nTr;
+}
+const grampDepois = () => LADOS[S.lado]?.gramp || 0;
 function textoCaixa(){ return S.caixa ? [S.caixa.nome, S.caixa.medida].filter(Boolean).join(' ') : ''; }
 function preencherCampos(){
-  document.getElementById('nTr').value = S.nTr;
+  aplicarLado();
   document.getElementById('nome').value = S.produto;
   document.getElementById('caixa').value = textoCaixa();
   document.getElementById('lote').value = '';
@@ -953,6 +962,12 @@ document.getElementById('maxLivre').addEventListener('input', e=>{
   S.maxLivre = v; try { localStorage.setItem('maxLivre', String(v)); } catch(err){}
   atualizar();
 });
+// lado da esteira: regra da linha, fica lembrado neste computador
+try { const v = localStorage.getItem('ladoLinha'); if (v && LADOS[v]){ S.lado = v; document.getElementById('lado').value = v; aplicarLado(); } } catch(e){}
+document.getElementById('lado').addEventListener('change', e=>{
+  S.lado = LADOS[e.target.value] ? e.target.value : ''; try { localStorage.setItem('ladoLinha', S.lado); } catch(err){}
+  aplicarLado(); S.avisoPares=''; atualizar();
+});
 document.getElementById('lote').addEventListener('input', atualizar);
 document.getElementById('nome').addEventListener('input', e=>{ if (S.origem==='zero') S.produto = e.target.value.trim(); atualizar(); });
 document.getElementById('caixa').addEventListener('input', e=>{ const t = e.target.value.trim().toUpperCase(); S.caixa = t ? { nome:t, medida:'' } : null; atualizar(); });
@@ -983,7 +998,7 @@ if ('serviceWorker' in navigator && (location.protocol==='https:' || location.ho
 })();
 // aviso de atualização: abre uma vez a cada versão nova; o botão da versão reabre
 (() => {
-  const VERSAO_APP = '1.2', dlg = document.getElementById('novidades');
+  const VERSAO_APP = '1.3', dlg = document.getElementById('novidades');
   const abrir = () => { if (dlg.showModal && !dlg.open) dlg.showModal(); };
   document.getElementById('versao').addEventListener('click', abrir);
   let vista = null; try { vista = localStorage.getItem('versaoVista'); } catch(e){}

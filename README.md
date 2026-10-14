@@ -11,6 +11,9 @@ Ferramenta da Patrimar Móveis (PPCP). Lê a planilha antiga do **mapa dos trilh
 - Modo padrão **separar operadores**: trilhos livres entre os postos, divididos por igual, até o
   **máximo de livres entre postos** (padrão 3, fica lembrado no computador). O que sobra fica no fim da linha.
   O modo alternativo mantém os trilhos atuais.
+- **Lado da esteira** (layout da embalagem de 13/10/2026, uma fila de trilhos por produto): Esquerdo = 36 trilhos,
+  com a Grampeadora marcada entre os trilhos 27 e 28; Direito = 39 trilhos. "Outro" deixa digitar o nº de trilhos.
+  Fica lembrado no computador. A posição da Grampeadora está em `LADOS` no `index.html`.
 - **PERFIL H não ocupa trilho**: vai em cima da peça vizinha do mesmo posto (a de cima; se não houver, a de baixo).
 - **Trilho só com ISOMANTA** no mapa original (estoque do posto) entra como trilho de ISOMANTA, com aviso.
 - **Trilho duplo A/B** sugerido (no máximo um par por posto, peças maiores e de maior consumo),
