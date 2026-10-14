@@ -120,7 +120,7 @@ table.mapa{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.5p
 table.mapa th{background:var(--m-navy);color:#fff;font-size:8pt;padding:1mm;text-align:center}
 table.mapa td{height:var(--rowh);border-bottom:.3mm solid #BFBFBF;padding:0 1.5mm;vertical-align:middle;color:#595959;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 table.mapa td.est{background:var(--m-esteira);color:#fff;font-weight:700;padding:0;border:none;text-align:center}
-table.mapa td.est div{writing-mode:vertical-rl;transform:rotate(180deg);font-size:10pt;letter-spacing:1px;margin:auto}
+table.mapa td.est div{writing-mode:vertical-rl;text-orientation:mixed;font-size:10pt;letter-spacing:1px;margin:auto}
 table.mapa td.op{background:var(--m-navy);color:#fff;font-weight:700;font-size:13pt;text-align:center;line-height:1.05;white-space:normal;border-bottom:.6mm solid #000}
 table.mapa td.tr{text-align:center;font-size:13pt;font-weight:700;color:var(--m-navy)}
 table.mapa td.par{text-align:center;font-size:12pt;font-weight:700}
@@ -843,7 +843,7 @@ async function baixarExcel(){
   const H = ['▼','OP','TRILHO','PAR','PEÇA','MEDIDA','QTDE','ISOMANTA','ESQ.'];
   H.forEach((t,i)=>{ const c = ws.getRow(6).getCell(i+1); c.value=t; c.font={name:'Arial',size:9,bold:true,color:{argb:'FFFFFFFF'}}; c.fill=F(NAVY); c.alignment={horizontal:'center',vertical:'middle'}; });
   const r0 = 7, n = slots.length;
-  ws.mergeCells(r0,1,r0+n-1,1); Object.assign(ws.getCell(r0,1), {value:'SENTIDO DA ESTEIRA ▼', fill:F('FF00B050'), font:{name:'Arial',size:11,bold:true,color:{argb:'FFFFFFFF'}}, alignment:{textRotation:90,horizontal:'center',vertical:'middle'}});
+  ws.mergeCells(r0,1,r0+n-1,1); Object.assign(ws.getCell(r0,1), {value:'SENTIDO DA ESTEIRA ►', fill:F('FF00B050'), font:{name:'Arial',size:11,bold:true,color:{argb:'FFFFFFFF'}}, alignment:{textRotation:-90,horizontal:'center',vertical:'middle'}});
   const blocos = linhasMapa(slots); let r = r0, bi = 0;
   for (const b of blocos){
     if (b.tipo==='gap'){
