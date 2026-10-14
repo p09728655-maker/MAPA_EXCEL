@@ -46,4 +46,4 @@ Instalado, funciona sem internet; quando há internet, sempre abre a versão mai
 Sem build. `index.html` (app), `vendor/` (SheetJS 0.18.5 para leitura, ExcelJS 4.4.0 para exportação — servidos
 pelo próprio site, sem CDN), `sw.js` + `manifest.webmanifest` + `icons/` (app instalável).
 Ao trocar uma biblioteca ou ícone, mude `VERSAO` em `sw.js`. A planilha é lida no navegador e não sai do computador.
-Abre com a Penteadeira Princesa como exemplo.
+Abre vazio: abra a planilha do mapa ou crie um mapa do zero.
