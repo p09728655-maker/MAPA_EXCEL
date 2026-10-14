@@ -37,6 +37,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:15px
 .topo{background:var(--marca);color:#fff;padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
 .topo h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.2px}
 .topo span{opacity:.85;font-size:14px}
+.topo .versao{font-size:12px;opacity:.75;font-variant-numeric:tabular-nums}
 .topo .instalar{margin-left:auto;background:transparent;border:1px solid rgba(255,255,255,.8);color:#fff;min-height:34px;padding:5px 12px}
 .topo .instalar:hover{background:rgba(255,255,255,.15);border-color:#fff}
 .app{display:grid;grid-template-columns:minmax(360px,560px) minmax(0,1fr);gap:20px;padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));align-items:start}
@@ -152,7 +153,7 @@ table.mapa tr.semesp td.par{color:#C00000;font-size:6pt;font-weight:700;white-sp
 </style>
 </head>
 <body>
-<header class="topo"><h1>Conversor de Mapas de Trilhos</h1><span>Embalagem · Patrimar Móveis</span><button class="btn instalar" id="instalar" type="button" hidden>Instalar app</button></header>
+<header class="topo"><h1>Conversor de Mapas de Trilhos</h1><span>Embalagem · Patrimar Móveis</span><span class="versao" title="Versão do app">v1.2 · 14/10/2026</span><button class="btn instalar" id="instalar" type="button" hidden>Instalar app</button></header>
 <main class="app">
   <div class="col trab">
     <section class="bloco" aria-labelledby="h1">
