@@ -37,7 +37,14 @@ body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:15px
 .topo{background:var(--marca);color:#fff;padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
 .topo h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.2px}
 .topo span{opacity:.85;font-size:14px}
-.topo .versao{font-size:12px;opacity:.75;font-variant-numeric:tabular-nums}
+.topo .versao{font:inherit;font-size:12px;color:#fff;opacity:.8;background:none;border:0;padding:4px 2px;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;font-variant-numeric:tabular-nums}
+.topo .versao:hover{opacity:1}
+.novidades{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);color:var(--fg);padding:20px 22px;max-width:min(480px,calc(100vw - 32px))}
+.novidades::backdrop{background:rgba(0,0,0,.45)}
+.novidades h2{margin:0 0 4px;font-size:18px}
+.novidades p{margin:0 0 12px;color:var(--muted);font-size:13px}
+.novidades ul{margin:0 0 16px;padding-left:20px;line-height:1.5}
+.novidades form{display:flex;justify-content:flex-end}
 .topo .instalar{margin-left:auto;background:transparent;border:1px solid rgba(255,255,255,.8);color:#fff;min-height:34px;padding:5px 12px}
 .topo .instalar:hover{background:rgba(255,255,255,.15);border-color:#fff}
 .app{display:grid;grid-template-columns:minmax(360px,560px) minmax(0,1fr);gap:20px;padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));align-items:start}
@@ -153,7 +160,21 @@ table.mapa tr.semesp td.par{color:#C00000;font-size:6pt;font-weight:700;white-sp
 </style>
 </head>
 <body>
-<header class="topo"><h1>Conversor de Mapas de Trilhos</h1><span>Embalagem · Patrimar Móveis</span><span class="versao" title="Versão do app">v1.2 · 14/10/2026</span><button class="btn instalar" id="instalar" type="button" hidden>Instalar app</button></header>
+<header class="topo"><h1>Conversor de Mapas de Trilhos</h1><span>Embalagem · Patrimar Móveis</span><button class="versao" id="versao" type="button" title="Ver o que mudou nesta versão">v1.2 · 14/10/2026</button><button class="btn instalar" id="instalar" type="button" hidden>Instalar app</button></header>
+<dialog class="novidades" id="novidades" aria-labelledby="novTit">
+  <h2 id="novTit">Novidades da versão 1.2</h2>
+  <p>Atualizado em 14/10/2026</p>
+  <ul>
+    <li><b>+ Peça no OP xx</b> no fim de cada posto e <b>+ Novo posto</b> para montar o mapa na tela.</li>
+    <li>Produto com mais de um volume: cada volume vira um mapa, escolhido em "Mapa da planilha".</li>
+    <li>Mapas antigos (sem "DESCRIÇÃO DA PEÇA") e posto escrito "OP.01" agora são lidos.</li>
+    <li>PERFIL H não ocupa trilho: vai em cima da peça vizinha do mesmo posto.</li>
+    <li>"Separar operadores" tem um máximo de trilhos livres entre postos (padrão 3).</li>
+    <li>Clicar em ↑ ↓ ✕ + logo depois de digitar não perde mais o clique.</li>
+    <li>O Excel guarda PERFIL H, revisão e velocidade, e reabre igual.</li>
+  </ul>
+  <form method="dialog"><button class="btn prim" type="submit">Entendi</button></form>
+</dialog>
 <main class="app">
   <div class="col trab">
     <section class="bloco" aria-labelledby="h1">
@@ -959,6 +980,14 @@ if ('serviceWorker' in navigator && (location.protocol==='https:' || location.ho
   const bin = atob(AMOSTRA_B64); const u = new Uint8Array(bin.length); for (let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
   carregar(u, 'PENTEADEIRA_PRINCESA.xlsx');
   document.getElementById('fonte').innerHTML = 'Exemplo carregado: <strong>Penteadeira Princesa</strong>. Abra a planilha de outro produto para converter, ou crie um mapa do zero.';
+})();
+// aviso de atualização: abre uma vez a cada versão nova; o botão da versão reabre
+(() => {
+  const VERSAO_APP = '1.2', dlg = document.getElementById('novidades');
+  const abrir = () => { if (dlg.showModal && !dlg.open) dlg.showModal(); };
+  document.getElementById('versao').addEventListener('click', abrir);
+  let vista = null; try { vista = localStorage.getItem('versaoVista'); } catch(e){}
+  if (vista !== VERSAO_APP){ abrir(); try { localStorage.setItem('versaoVista', VERSAO_APP); } catch(e){} }
 })();
 </script>
 </body>
