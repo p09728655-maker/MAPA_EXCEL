@@ -162,18 +162,13 @@ table.mapa tr.semesp td.par{color:#C00000;font-size:6pt;font-weight:700;white-sp
 </style>
 </head>
 <body>
-<header class="topo"><h1>Conversor de Mapas de Trilhos</h1><span>Embalagem · Patrimar Móveis</span><button class="versao" id="versao" type="button" title="Ver o que mudou nesta versão">v1.2 · 14/10/2026</button><button class="btn instalar" id="instalar" type="button" hidden>Instalar app</button></header>
+<header class="topo"><h1>Conversor de Mapas de Trilhos</h1><span>Embalagem · Patrimar Móveis</span><button class="versao" id="versao" type="button" title="Ver o que mudou nesta versão">v1.3 · 14/10/2026</button><button class="btn instalar" id="instalar" type="button" hidden>Instalar app</button></header>
 <dialog class="novidades" id="novidades" aria-labelledby="novTit">
-  <h2 id="novTit">Novidades da versão 1.2</h2>
+  <h2 id="novTit">Novidades da versão 1.3</h2>
   <p>Atualizado em 14/10/2026</p>
   <ul>
-    <li><b>+ Peça no OP xx</b> no fim de cada posto e <b>+ Novo posto</b> para montar o mapa na tela.</li>
-    <li>Produto com mais de um volume: cada volume vira um mapa, escolhido em "Mapa da planilha".</li>
-    <li>Mapas antigos (sem "DESCRIÇÃO DA PEÇA") e posto escrito "OP.01" agora são lidos.</li>
-    <li>PERFIL H não ocupa trilho: vai em cima da peça vizinha do mesmo posto.</li>
-    <li>"Separar operadores" tem um máximo de trilhos livres entre postos (padrão 3).</li>
-    <li>Clicar em ↑ ↓ ✕ + logo depois de digitar não perde mais o clique.</li>
-    <li>O Excel guarda PERFIL H, revisão e velocidade, e reabre igual.</li>
+    <li>O app abre <b>vazio</b>: abra a planilha do mapa ou clique em <b>Criar do zero</b>. "Imprimir" e "Baixar Excel" ficam liberados quando há um mapa.</li>
+    <li>A faixa verde <b>"SENTIDO DA ESTEIRA"</b> agora aponta para baixo, da caixa (trilho 1) até o último trilho, na tela, na impressão e no Excel.</li>
   </ul>
   <form method="dialog"><button class="btn prim" type="submit">Entendi</button></form>
 </dialog>
@@ -985,7 +980,7 @@ if ('serviceWorker' in navigator && (location.protocol==='https:' || location.ho
 })();
 // aviso de atualização: abre uma vez a cada versão nova; o botão da versão reabre
 (() => {
-  const VERSAO_APP = '1.2', dlg = document.getElementById('novidades');
+  const VERSAO_APP = '1.3', dlg = document.getElementById('novidades');
   const abrir = () => { if (dlg.showModal && !dlg.open) dlg.showModal(); };
   document.getElementById('versao').addEventListener('click', abrir);
   let vista = null; try { vista = localStorage.getItem('versaoVista'); } catch(e){}
