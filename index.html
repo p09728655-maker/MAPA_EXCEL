@@ -84,6 +84,10 @@ table.pecas tr.opsep td{border-top:2px solid var(--fg)}
 .mv button.apaga:hover{border-color:var(--marca);color:var(--marca)}
 .mv button:disabled{opacity:.35;cursor:default}
 .mv button:focus-visible{outline:3px solid var(--focus);outline-offset:1px}
+table.pecas tr.addop td{padding:0 3px 4px;border-bottom:none}
+.lnk{font:inherit;font-size:13px;font-weight:700;color:var(--focus);background:none;border:none;border-radius:4px;padding:5px 6px;cursor:pointer}
+.lnk:hover{text-decoration:underline}
+.lnk:focus-visible{outline:3px solid var(--focus);outline-offset:1px}
 .orig{font-size:11px;color:var(--muted);display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .resumo{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
 .kpi{border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;background:var(--surface)}
@@ -182,13 +186,13 @@ table.mapa tr.semesp td.par{color:#C00000;font-size:6pt;font-weight:700;white-sp
 
     <section class="bloco" aria-labelledby="h3">
       <h2 id="h3"><b>3</b>Peças na ordem da esteira</h2>
-      <div class="fonte">A ordem da lista é a ordem da esteira. Edite nome, medida e posto; marque isomanta e trilho duplo (A/B). Use ↑ ↓ só para corrigir a ordem.</div>
+      <div class="fonte">A ordem da lista é a ordem da esteira. Edite nome, medida e posto; marque isomanta e trilho duplo (A/B). Para mais uma peça no mesmo operador, use "+ Peça no OP" no fim do posto.</div>
       <div class="tabwrap"><table class="pecas" id="tabPecas">
         <colgroup><col style="width:26px"><col style="width:44px"><col><col style="width:42px"><col style="width:40px"><col style="width:34px"><col style="width:42px"><col style="width:32px"></colgroup>
         <thead><tr><th>#</th><th>Op</th><th>Peça / medida</th><th>Qtde</th><th title="Isomanta">Isom.</th><th title="Trilho duplo">A/B</th><th title="Número do esquema">Esq.</th><th><span hidden>Ordem</span></th></tr></thead>
         <tbody></tbody>
       </table></div>
-      <div class="acoes"><button class="btn" id="addPeca" type="button">+ Adicionar peça</button></div>
+      <div class="acoes"><button class="btn" id="addPeca" type="button">+ Novo posto</button></div>
     </section>
   </div>
 
@@ -515,7 +519,7 @@ function renderPecas(){
   const tb = document.querySelector('#tabPecas tbody'); tb.innerHTML='';
   const n = S.itens.length;
   S.itens.forEach((it,i)=>{
-    const tr = document.createElement('tr');
+    const tr = document.createElement('tr'); tr.dataset.i = i;
     if (i>0 && S.itens[i-1].op!==it.op) tr.className='opsep';
     tr.innerHTML = `<td class="seq">${i+1}</td>
       <td><input class="op" type="text" id="op_${i}" value="${esc(it.op)}" aria-label="Posto da peça ${i+1}"></td>
@@ -526,8 +530,15 @@ function renderPecas(){
       <td><input class="qt" type="text" id="eq_${i}" value="${esc(it.esq)}" aria-label="Número do esquema da peça ${i+1}"></td>
       <td><div class="mv"><button type="button" data-acao="sobe" data-i="${i}" ${i===0?'disabled':''} aria-label="Subir peça ${i+1}" title="Subir">↑</button><button type="button" data-acao="desce" data-i="${i}" ${i===n-1?'disabled':''} aria-label="Descer peça ${i+1}" title="Descer">↓</button><button type="button" class="apaga" data-acao="apaga" data-i="${i}" aria-label="Apagar peça ${i+1}" title="Apagar">✕</button></div></td>`;
     tb.appendChild(tr);
+    if (i===n-1 || S.itens[i+1].op!==it.op){
+      const add = document.createElement('tr'); add.className = 'addop';
+      add.innerHTML = `<td></td><td colspan="7"><button type="button" class="lnk" data-acao="addop" data-i="${i}">+ Peça no OP ${esc(it.op)}</button></td>`;
+      tb.appendChild(add);
+    }
   });
+  document.getElementById('addPeca').textContent = `+ Novo posto (OP ${proximoOp()})`;
 }
+const proximoOp = () => pad2(S.itens.reduce((m,it)=>Math.max(m, +it.op || 0), 0) + 1);
 document.querySelector('#tabPecas').addEventListener('input', e=>{
   const m = e.target.id.match(/^(op|nm|md|qt|is|pa|eq)_(\d+)$/); if (!m) return;
   const it = S.itens[+m[2]]; const val = e.target.type==='checkbox' ? e.target.checked : e.target.value;
@@ -545,6 +556,11 @@ document.querySelector('#tabPecas').addEventListener('change', e=>{ if (/^op_/.t
 document.querySelector('#tabPecas').addEventListener('click', e=>{
   const b = e.target.closest('button[data-acao]'); if (!b) return;
   const i = +b.dataset.i, acao = b.dataset.acao;
+  if (acao==='addop'){
+    S.itens.splice(i+1, 0, novaPeca(S.itens[i].op, S.itens[i].trOrig));
+    renderPecas(); atualizar(); document.getElementById('nm_' + (i+1)).focus();
+    return;
+  }
   if (acao==='apaga'){
     const nome = S.itens[i].nome || 'peça sem nome';
     if (!confirm(`Apagar "${nome}" do mapa?`)) return;
@@ -557,14 +573,21 @@ document.querySelector('#tabPecas').addEventListener('click', e=>{
   const foco = document.querySelector(`#tabPecas button[data-acao="${acao}"][data-i="${acao==='sobe'? i-1 : acao==='desce'? i+1 : Math.min(i, S.itens.length-1)}"]`);
   if (foco && !foco.disabled) foco.focus();
 });
-function novaPeca(op){ return { desc:'', nome:'', medida:'', esq:'', dims:[], qt:null, iso:false, op: op || '01', trOrig: S.itens.length+1, par:false, obs:'' }; }
+// trilho "atual" da peça nova: o primeiro livre depois da peça de cima (vale para "Manter trilhos atuais")
+function trilhoLivre(depoisDe){
+  const ocup = new Set(S.itens.map(it=>it.trOrig));
+  for (let t=(depoisDe||0)+1; t<=S.nTr; t++) if (!ocup.has(t)) return t;
+  for (let t=1; t<=S.nTr; t++) if (!ocup.has(t)) return t;
+  return S.nTr + 1;
+}
+function novaPeca(op, depoisDe){ return { desc:'', nome:'', medida:'', esq:'', dims:[], qt:null, iso:false, op: op || '01', trOrig: trilhoLivre(depoisDe), par:false, obs:'' }; }
 document.getElementById('addPeca').addEventListener('click', ()=>{
   const ult = S.itens[S.itens.length-1];
-  S.itens.push(novaPeca(ult ? ult.op : '01'));
+  S.itens.push(novaPeca(proximoOp(), ult && ult.trOrig));
   renderPecas(); atualizar();
   document.getElementById('nm_' + (S.itens.length-1)).focus();
 });
-function renderPecasSeparadores(){ const rows = document.querySelectorAll('#tabPecas tbody tr'); rows.forEach((r,i)=>{ r.className = (i>0 && S.itens[i-1].op!==S.itens[i].op) ? 'opsep':''; }); }
+function renderPecasSeparadores(){ document.querySelectorAll('#tabPecas tbody tr[data-i]').forEach(r=>{ const i = +r.dataset.i; r.className = (i>0 && S.itens[i-1].op!==S.itens[i].op) ? 'opsep':''; }); }
 
 /* ================= render: folha ================= */
 let ULTIMO = null;
@@ -762,7 +785,7 @@ function novoMapa(){
   if (S.origem==='zero' && S.itens.some(i=>i.nome) && !confirm('Começar outro mapa do zero? O mapa atual será descartado (baixe o Excel antes, se quiser guardar).')) return;
   const nTr = +document.getElementById('nTr').value;
   Object.assign(S, { produto:'', rev:'', vel:'', caixa:null, itens:[], avisos:[], arquivo:'', origem:'zero', abas:[], aba:'', buf:null, avisoPares:'', nTr: nTr>=5 && nTr<=80 ? nTr : 30 });
-  S.itens.push(novaPeca('01'));
+  S.itens.push(novaPeca('01', 0));
   preencherCampos();
   document.getElementById('modoSep').checked = true;
   document.getElementById('erroLeitura').hidden = true;
